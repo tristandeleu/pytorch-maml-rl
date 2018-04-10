@@ -2,21 +2,15 @@ import gym
 import torch
 import torch.nn.functional as F
 
-from maml_rl.sampler import BatchSampler
-
 class MetaLearner(object):
-    def __init__(self, env_name, policy, baseline, fast_batch_size=40,
-                 gamma=0.95, fast_lr=0.5):
-        self.env_name = env_name
+    def __init__(self, sampler, policy, baseline,
+                 gamma=0.95, fast_lr=0.5, is_cuda=False):
+        self.sampler = sampler
         self.policy = policy
         self.baseline = baseline
-        self.fast_batch_size = fast_batch_size
         self.gamma = gamma
         self.fast_lr = fast_lr
-
-        self._env = gym.make(env_name)
-        self.sampler = BatchSampler(env_name, batch_size=fast_batch_size)
-        self.is_cuda = False
+        self.is_cuda = is_cuda
     
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
@@ -31,7 +25,7 @@ class MetaLearner(object):
         return loss
 
     def loss(self, meta_batch_size=20):
-        tasks = self._env.unwrapped.sample_tasks(num_tasks=meta_batch_size)
+        tasks = self.sampler.sample_tasks(num_tasks=meta_batch_size)
         losses = []
         for task in tasks:
             self.sampler.reset_task(task)

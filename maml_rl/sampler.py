@@ -16,6 +16,7 @@ class BatchSampler(object):
         self.batch_size = batch_size
         
         self.envs = SubprocVecEnv([make_env(env_name) for _ in range(batch_size)])
+        self._env = gym.make(env_name)
 
     def sample(self, policy, params=None, gamma=0.95, is_cuda=False):
         episodes = BatchEpisodes(gamma=gamma, is_cuda=is_cuda)
@@ -34,3 +35,7 @@ class BatchSampler(object):
         tasks = [task for _ in range(self.batch_size)]
         reset = self.envs.reset_task(tasks)
         return all(reset)
+
+    def sample_tasks(self, num_tasks):
+        tasks = self._env.unwrapped.sample_tasks(num_tasks)
+        return tasks

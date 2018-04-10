@@ -6,15 +6,16 @@ import torch.optim as optim
 from maml_rl.metalearner import MetaLearner
 from maml_rl.policies import CategoricalMLPPolicy
 from maml_rl.baseline import LinearFeatureBaseline
+from maml_rl.sampler import BatchSampler
 
 from tqdm import trange
 
-env = gym.make('Bandit-K50-v0')
-policy = CategoricalMLPPolicy(env.observation_space.shape[0],
-    env.action_space.n, hidden_sizes=(32, 32))
-baseline = LinearFeatureBaseline(env.observation_space.shape[0])
+sampler = BatchSampler('Bandit-K50-v0', batch_size=100)
+policy = CategoricalMLPPolicy(sampler.envs.observation_space.shape[0],
+    sampler.envs.action_space.n, hidden_sizes=(32, 32))
+baseline = LinearFeatureBaseline(sampler.envs.observation_space.shape[0])
 
-metalearner = MetaLearner('Bandit-K50-v0', policy, baseline, fast_batch_size=100)
+metalearner = MetaLearner(sampler, policy, baseline)
 optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 
 all_rewards = []
