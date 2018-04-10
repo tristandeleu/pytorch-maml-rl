@@ -19,16 +19,14 @@ class MetaLearner(object):
         self.is_cuda = False
     
     def inner_loss(self, episodes, params=None):
-        values = self.baseline(episodes).squeeze(2)
-        values = F.pad(values * episodes.mask, (0, 0, 0, 1))
-        
-        deltas = episodes.returns + self.gamma * values[1:] - values[:-1]
+        values = self.baseline(episodes)
+        advantages = episodes.gae(values, tau=1.0)
 
         pi = self.policy(episodes.observations, params=params)
         # TODO: Check log_prob for continuous actions (eg. NormalMLPPolicy)
         log_probs = pi.log_prob(episodes.actions)
 
-        loss = -torch.mean(log_probs * deltas)
+        loss = -torch.mean(log_probs * advantages)
 
         return loss
 

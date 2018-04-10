@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.autograd import Variable
 
 class BatchEpisodes(object):
@@ -17,6 +18,13 @@ class BatchEpisodes(object):
         self._rewards = None
         self._returns = None
         self._mask = None
+
+    @property
+    def batch_size(self):
+        if not self._rewards_list:
+            raise ValueError('The batch size of an empty batch '
+                             'of episodes is undefined')
+        return self._rewards_list[0].shape[0]
 
     @property
     def observations(self):
@@ -51,9 +59,8 @@ class BatchEpisodes(object):
     @property
     def returns(self):
         if self._returns is None:
-            batch_size = self._rewards_list[0].shape[0]
-            return_ = np.zeros(batch_size, dtype=np.float32)
-            returns = np.zeros((len(self), batch_size), dtype=np.float32)
+            return_ = np.zeros(self.batch_size, dtype=np.float32)
+            returns = np.zeros((len(self), self.batch_size), dtype=np.float32)
             for i in range(len(self) - 1, -1, -1):
                 return_ = (self.gamma * return_
                     + self._rewards_list[i] * self._mask_list[i])
@@ -73,6 +80,21 @@ class BatchEpisodes(object):
                 mask_tensor = mask_tensor.cuda()
             self._mask = Variable(mask_tensor)
         return self._mask
+
+    def gae(self, values, tau=1.0):
+        # Add an additional 0 at the end of values for
+        # the estimation at the end of the episode
+        values = values.squeeze(2).detach()
+        values = F.pad(values * self.mask, (0, 0, 0, 1))
+
+        deltas = self.rewards + self.gamma * values[1:] - values[:-1]
+        advantages = torch.zeros_like(deltas).float()
+        gae = torch.zeros(self.batch_size).float()
+        for i in range(len(self) - 1, -1, -1):
+            gae = gae * self.gamma * tau + deltas[i].data
+            advantages.data[i] = gae
+
+        return advantages
 
     def append(self, observations, actions, rewards, dones):
         self._observations_list.append(observations.astype(np.float32))
