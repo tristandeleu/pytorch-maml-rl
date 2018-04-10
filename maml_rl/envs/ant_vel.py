@@ -3,11 +3,11 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 
 class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
-    def __init__(self, goal=None):
+    def __init__(self, goal=0):
+        self._task = 0
+        self._goal_vel = goal
         mujoco_env.MujocoEnv.__init__(self, 'ant.xml', 5)
         utils.EzPickle.__init__(self)
-        self._task = None
-        self._goal_vel = goal
 
     def step(self, action):
         xposbefore = self.get_body_com("torso")[0]
@@ -43,7 +43,9 @@ class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.sim.data.qpos.flat[2:],
             self.sim.data.qvel.flat,
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
-        ])
+            self.sim.data.get_body_xmat("torso").flat,
+            self.get_body_com("torso"),
+        ]).reshape(-1)
 
     def sample_tasks(self, num_tasks):
         velocities = np.random.uniform(0.0, 3.0, size=(num_tasks,))
