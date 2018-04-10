@@ -20,6 +20,16 @@ register(
     max_episode_steps=10
 )
 
+# Ant for Velocity
+# ----------------------------------------
+
+register(
+    'AntVelEnv-v0',
+    entry_point='maml_rl.envs.ant_vel:AntVelEnv',
+    max_episode_steps=200
+)
+
+
 # 2D Navigation
 # ----------------------------------------
 
