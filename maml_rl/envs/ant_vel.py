@@ -45,7 +45,7 @@ class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
             self.sim.data.get_body_xmat("torso").flat,
             self.get_body_com("torso"),
-        ]).reshape(-1)
+        ]).astype(np.float32).reshape(-1)
 
     def sample_tasks(self, num_tasks):
         velocities = np.random.uniform(0.0, 3.0, size=(num_tasks,))
