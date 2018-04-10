@@ -26,21 +26,32 @@ class MetaLearner(object):
 
         return loss
 
-    def loss(self, meta_batch_size=20):
+    def sample(self, meta_batch_size=20):
         tasks = self.sampler.sample_tasks(num_tasks=meta_batch_size)
-        losses = []
+        episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
             train_episodes = self.sampler.sample(self.policy,
                 gamma=self.gamma, is_cuda=self.is_cuda)
+            self.baseline.fit(train_episodes)
+            loss = self.inner_loss(train_episodes)
+
+            params = self.policy.update_params(loss, step_size=self.fast_lr)
+
+            valid_episodes = self.sampler.sample(self.policy, params=params,
+                gamma=self.gamma, is_cuda=self.is_cuda)
+            episodes.append((train_episodes, valid_episodes))
+        return episodes
+
+    def loss(self, episodes):
+        losses = []
+        for train_episodes, valid_episodes in episodes:
             self.baseline.fit(train_episodes)
             train_loss = self.inner_loss(train_episodes)
 
             params = self.policy.update_params(train_loss,
                 step_size=self.fast_lr)
 
-            valid_episodes = self.sampler.sample(self.policy,
-                params=params, gamma=self.gamma, is_cuda=self.is_cuda)
             valid_loss = self.inner_loss(valid_episodes, params=params)
             losses.append(valid_loss)
 

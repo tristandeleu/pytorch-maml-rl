@@ -21,7 +21,8 @@ optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 all_rewards = []
 for epoch in trange(1000):
     optimizer.zero_grad()
-    loss, rewards = metalearner.loss(meta_batch_size=20)
+    episodes = metalearner.sample(meta_batch_size=20)
+    loss, rewards = metalearner.loss(episodes)
     loss.backward()
     optimizer.step()
     all_rewards.append(rewards.data[0])
