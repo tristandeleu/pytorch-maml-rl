@@ -17,8 +17,10 @@ class MetaLearner(object):
         advantages = episodes.gae(values, tau=1.0)
 
         pi = self.policy(episodes.observations, params=params)
-        # TODO: Check log_prob for continuous actions (eg. NormalMLPPolicy)
         log_probs = pi.log_prob(episodes.actions)
+        # Sum the log probabilities in case of continuous actions
+        if log_probs.dim() > 2:
+            log_probs = torch.sum(log_probs, dim=2)
 
         loss = -torch.mean(log_probs * advantages)
 
