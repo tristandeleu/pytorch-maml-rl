@@ -1,6 +1,6 @@
-import gym
 import torch
 import torch.nn.functional as F
+from torch.autograd import Variable
 # TODO: Replace by torch.distributions in Pytorch 0.4
 from maml_rl.distributions import Categorical, Normal
 from maml_rl.distributions.kl import kl_divergence
@@ -24,7 +24,7 @@ class MetaLearner(object):
         # Sum the log probabilities in case of continuous actions
         if log_probs.dim() > 2:
             log_probs = torch.sum(log_probs, dim=2)
-
+        # TODO: Use episodes.mask for mean
         loss = -torch.mean(log_probs * advantages)
 
         return loss
@@ -79,6 +79,7 @@ class MetaLearner(object):
             else:
                 raise NotImplementedError('Only `Categorical` and `Normal` '
                     'policies are valid policies.')
+            # TODO: Use valid_episodes.mask for mean
             kls.append(kl_divergence(pi, pi_old).mean())
         return torch.mean(torch.cat(kls, dim=0))
 
@@ -96,6 +97,26 @@ class MetaLearner(object):
 
             return flat_grad2_kl + damping * vector
         return _product
+
+    def surrogate_loss(self, episodes, old_pis):
+        losses = []
+        for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
+            self.baseline.fit(train_episodes)
+            train_loss = self.inner_loss(train_episodes)
+
+            params = self.policy.update_params(train_loss,
+                step_size=self.fast_lr)
+            pi = self.policy(valid_episodes.observations, params=params)
+
+            values = self.baseline(valid_episodes)
+            advantages = valid_episodes.gae(values, tau=1.0)
+
+            ratio = torch.exp(pi.log_prob(valid_episodes.actions)
+                - old_pi.log_prob(valid_episodes.actions))
+            # TODO: Use valid_episodes.mask for mean
+            loss = -torch.mean(ratio * advantages)
+            losses.append(loss)
+        return torch.mean(torch.cat(losses, dim=0))
 
     def cuda(self, **kwargs):
         self.policy.cuda(**kwargs)
