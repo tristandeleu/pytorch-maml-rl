@@ -54,8 +54,10 @@ class MetaLearner(object):
 
             valid_loss = self.inner_loss(valid_episodes, params=params)
             losses.append(valid_loss)
+        total_rewards = torch.cat([torch.sum(valid_episodes.rewards)
+            for (_, valid_episodes) in episodes])
 
-        return torch.mean(torch.cat(losses, dim=0)), torch.sum(valid_episodes.rewards)
+        return torch.mean(torch.cat(losses, dim=0)), torch.mean(total_rewards)
 
     def cuda(self, **kwargs):
         self.policy.cuda(**kwargs)
