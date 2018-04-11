@@ -5,6 +5,16 @@ from torch.autograd import Variable
 from maml_rl.distributions import Categorical, Normal
 from maml_rl.distributions.kl import kl_divergence
 
+def detach_distribution(pi):
+    if isinstance(pi, Categorical):
+        distribution = Categorical(logits=pi.logits.detach())
+    elif isinstance(pi, Normal):
+        distribution = Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
+    else:
+        raise NotImplementedError('Only `Categorical` and `Normal` '
+                                  'policies are valid policies.')
+    return distribution
+
 class MetaLearner(object):
     def __init__(self, sampler, policy, baseline,
                  gamma=0.95, fast_lr=0.5, is_cuda=False):
@@ -68,7 +78,7 @@ class MetaLearner(object):
 
     def hessian_vector_product(self, episodes, damping=1e-2):
         def _product(vector):
-            _, kl = self.surrogate_loss(episodes)
+            _, kl, _ = self.surrogate_loss(episodes)
             grads = torch.autograd.grad(kl, self.policy.parameters(),
                 create_graph=True)
             flat_grad_kl = torch.cat([grad.view(-1) for grad in grads])
@@ -82,22 +92,17 @@ class MetaLearner(object):
         return _product
 
     def surrogate_loss(self, episodes, old_pis=None):
-        losses, kls = [], []
+        losses, kls, pis = [], [], []
         if old_pis is None:
             old_pis = [None] * len(episodes)
 
         for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
             params = self.adapt(train_episodes)
             pi = self.policy(valid_episodes.observations, params=params)
+            pis.append(pi)
 
             if old_pi is None:
-                if isinstance(pi, Categorical):
-                    old_pi = Categorical(logits=pi.logits.detach())
-                elif isinstance(pi, Normal):
-                    old_pi = Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
-                else:
-                    raise NotImplementedError('Only `Categorical` and `Normal` '
-                        'policies are valid policies.')
+                old_pi = detach_distribution(pi)
 
             values = self.baseline(valid_episodes)
             advantages = valid_episodes.gae(values, tau=1.0)
@@ -113,7 +118,7 @@ class MetaLearner(object):
             kls.append(kl)
 
         return (torch.mean(torch.cat(losses, dim=0)),
-                torch.mean(torch.cat(kls, dim=0)))
+                torch.mean(torch.cat(kls, dim=0)), pis)
 
     def cuda(self, **kwargs):
         self.policy.cuda(**kwargs)
