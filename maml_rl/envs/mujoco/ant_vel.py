@@ -1,11 +1,16 @@
 import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
+from gym import spaces
 
 class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, goal=0):
         self._task = 0
         self._goal_vel = goal
+        
+        #temporary action_space
+        self.action_space = spaces.Box(low=0.5, high=1, shape=(1,), dtype=np.float32)
+            
         mujoco_env.MujocoEnv.__init__(self, 'ant.xml', 5)
         utils.EzPickle.__init__(self)
 
@@ -60,8 +65,8 @@ class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def reset(self):
 
-        qpos = self.init_qpos + \ np.random.normal(size=self.init_qpos.shape) * 0.01
-        qvel = self.init_qvel  + \ np.random.normal(size=self.init_qvel.shape) * 0.1
+        qpos = self.init_qpos + np.random.normal(size=self.init_qpos.shape) * 0.01
+        qvel = self.init_qvel  + np.random.normal(size=self.init_qvel.shape) * 0.1
 
         #qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-.1, high=.1)
         #qvel = self.init_qvel + self.np_random.randn(self.model.nv) * 0.1
