@@ -7,7 +7,7 @@ class BatchEpisodes(object):
     def __init__(self, gamma=0.95, is_cuda=False, volatile=False):
         self.gamma = gamma
         self.is_cuda = is_cuda
-        self.volatile = volatile
+        self._volatile = volatile
         
         self._observations_list = []
         self._actions_list = []
@@ -34,7 +34,7 @@ class BatchEpisodes(object):
             self._observations = torch.from_numpy(observations).float()
             if self.is_cuda:
                 self._observations = self._observations.cuda()
-        return Variable(self._observations, volatile=self.volatile)
+        return Variable(self._observations, volatile=self._volatile)
 
     @property
     def actions(self):
@@ -43,7 +43,7 @@ class BatchEpisodes(object):
             self._actions = torch.from_numpy(actions).float()
             if self.is_cuda:
                 self._actions = self._actions.cuda()
-        return Variable(self._actions, volatile=self.volatile)
+        return Variable(self._actions, volatile=self._volatile)
 
     @property
     def rewards(self):
@@ -52,7 +52,7 @@ class BatchEpisodes(object):
             self._rewards = torch.from_numpy(rewards).float()
             if self.is_cuda:
                 self._rewards = self._rewards.cuda()
-        return Variable(self._rewards, volatile=self.volatile)
+        return Variable(self._rewards, volatile=self._volatile)
 
     @property
     def returns(self):
@@ -66,7 +66,7 @@ class BatchEpisodes(object):
             self._returns = torch.from_numpy(returns).float()
             if self.is_cuda:
                 self._returns = self._returns.cuda()
-        return Variable(self._returns, volatile=self.volatile)
+        return Variable(self._returns, volatile=self._volatile)
 
     @property
     def mask(self):
@@ -75,7 +75,7 @@ class BatchEpisodes(object):
             self._mask = torch.from_numpy(mask).float()
             if self.is_cuda:
                 self._mask = self._mask.cuda()
-        return Variable(self._mask, volatile=self.volatile)
+        return Variable(self._mask, volatile=self._volatile)
 
     def gae(self, values, tau=1.0):
         # Add an additional 0 at the end of values for
@@ -93,7 +93,7 @@ class BatchEpisodes(object):
         return advantages
 
     def volatile(self, arg=True):
-        self.volatile = arg
+        self._volatile = arg
 
     def append(self, observations, actions, rewards, dones):
         self._observations_list.append(observations.astype(np.float32))
