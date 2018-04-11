@@ -2,10 +2,10 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
-class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class AntDirEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, goal=0):
         self._task = 0
-        self._goal_vel = goal
+        self._goal_dir = goal
         mujoco_env.MujocoEnv.__init__(self, 'ant.xml', 5)
         utils.EzPickle.__init__(self)
 
@@ -16,7 +16,7 @@ class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         forward_vel = (xposafter - xposbefore) / self.dt
 
-        forward_reward = -np.abs(forward_vel - self._goal_vel) + 1.0
+        forward_reward = self._goal_dir*forward_vel
 
         lb = self.action_space.low
         ub = self.action_space.high
@@ -50,13 +50,14 @@ class AntVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         ]).astype(np.float32).reshape(-1)
 
     def sample_tasks(self, num_tasks):
-        velocities = np.random.uniform(0.0, 3.0, size=(num_tasks,))
-        tasks = [{'velocity': velocity} for velocity in velocities]
+        directions = np.random.binomial(1, p=0.5, size=num_tasks)
+        np.place(directions, directions==0, [-1])
+        tasks = [{'direction': direction} for direction in directions]
         return tasks
 
     def reset_task(self, task):
         self._task = task
-        self._goal_vel = task['velocity']
+        self._goal_dir = task['direction']
 
     def reset(self):
         qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-.1, high=.1)
