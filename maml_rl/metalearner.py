@@ -82,6 +82,21 @@ class MetaLearner(object):
             kls.append(kl_divergence(pi, pi_old).mean())
         return torch.mean(torch.cat(kls, dim=0))
 
+    def hessian_vector_product(self, episodes, damping=1e-2):
+        def _product(vector):
+            kl = self.mean_kl(episodes)
+            grads = torch.autograd.grad(kl, self.policy.parameters(),
+                create_graph=True)
+            flat_grad_kl = torch.cat([grad.view(-1) for grad in grads])
+
+            grad_kl_v = torch.dot(flat_grad_kl, vector)
+            grad2s = torch.autograd.grad(grad_kl_v, self.policy.parameters())
+            flat_grad2_kl = torch.cat([grad.contiguous().view(-1)
+                for grad in grad2s])
+
+            return flat_grad2_kl + damping * vector
+        return _product
+
     def cuda(self, **kwargs):
         self.policy.cuda(**kwargs)
         self.baseline.cuda(**kwargs)
