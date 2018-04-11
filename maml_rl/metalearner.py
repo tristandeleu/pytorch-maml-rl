@@ -1,6 +1,9 @@
 import gym
 import torch
 import torch.nn.functional as F
+# TODO: Replace by torch.distributions in Pytorch 0.4
+from maml_rl.distributions import Categorical, Normal
+from maml_rl.distributions.kl import kl_divergence
 
 class MetaLearner(object):
     def __init__(self, sampler, policy, baseline,
@@ -58,6 +61,26 @@ class MetaLearner(object):
             for (_, valid_episodes) in episodes])
 
         return torch.mean(torch.cat(losses, dim=0)), torch.mean(total_rewards)
+
+    def mean_kl(self, episodes):
+        kls = []
+        for train_episodes, valid_episodes in episodes:
+            self.baseline.fit(train_episodes)
+            train_loss = self.inner_loss(train_episodes)
+
+            params = self.policy.update_params(train_loss,
+                step_size=self.fast_lr)
+
+            pi = self.policy(valid_episodes, params=params)
+            if isinstance(pi, Categorical):
+                pi_old = Categorical(logits=pi.logits.detach())
+            elif isinstance(pi, Normal):
+                pi_old = Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
+            else:
+                raise NotImplementedError('Only `Categorical` and `Normal` '
+                    'policies are valid policies.')
+            kls.append(kl_divergence(pi, pi_old).mean())
+        return torch.mean(torch.cat(kls, dim=0))
 
     def cuda(self, **kwargs):
         self.policy.cuda(**kwargs)

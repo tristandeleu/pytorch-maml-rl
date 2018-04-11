@@ -126,8 +126,8 @@ def kl_divergence(p, q):
 @register_kl(Categorical, Categorical)
 def _kl_categorical_categorical(p, q):
     t = p.probs * (p.logits - q.logits)
-    t[q.probs == 0] = float('inf')
-    t[p.probs == 0] = 0
+    # t[q.probs == 0] = float('inf')
+    # t[p.probs == 0] = 0
     return t.sum(-1)
 
 @register_kl(Normal, Normal)
