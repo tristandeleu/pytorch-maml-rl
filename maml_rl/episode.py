@@ -4,9 +4,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 class BatchEpisodes(object):
-    def __init__(self, gamma=0.95, is_cuda=False):
+    def __init__(self, gamma=0.95, is_cuda=False, volatile=False):
         self.gamma = gamma
         self.is_cuda = is_cuda
+        self.volatile = volatile
         
         self._observations_list = []
         self._actions_list = []
@@ -30,31 +31,28 @@ class BatchEpisodes(object):
     def observations(self):
         if self._observations is None:
             observations = np.stack(self._observations_list, axis=0)
-            observations_tensor = torch.from_numpy(observations).float()
+            self._observations = torch.from_numpy(observations).float()
             if self.is_cuda:
-                observations_tensor = observations_tensor.cuda()
-            self._observations = Variable(observations_tensor)
-        return self._observations
+                self._observations = self._observations.cuda()
+        return Variable(self._observations, volatile=self.volatile)
 
     @property
     def actions(self):
         if self._actions is None:
             actions = np.stack(self._actions_list, axis=0)
-            actions_tensor = torch.from_numpy(actions).float()
+            self._actions = torch.from_numpy(actions).float()
             if self.is_cuda:
-                actions_tensor = actions_tensor.cuda()
-            self._actions = Variable(actions_tensor)
-        return self._actions
+                self._actions = self._actions.cuda()
+        return Variable(self._actions, volatile=self.volatile)
 
     @property
     def rewards(self):
         if self._rewards is None:
             rewards = np.stack(self._rewards_list, axis=0)
-            rewards_tensor = torch.from_numpy(rewards).float()
+            self._rewards = torch.from_numpy(rewards).float()
             if self.is_cuda:
-                rewards_tensor = rewards_tensor.cuda()
-            self._rewards = Variable(rewards_tensor)
-        return self._rewards
+                self._rewards = self._rewards.cuda()
+        return Variable(self._rewards, volatile=self.volatile)
 
     @property
     def returns(self):
@@ -65,21 +63,19 @@ class BatchEpisodes(object):
                 return_ = (self.gamma * return_
                     + self._rewards_list[i] * self._mask_list[i])
                 returns[i] = return_
-            returns_tensor = torch.from_numpy(returns).float()
+            self._returns = torch.from_numpy(returns).float()
             if self.is_cuda:
-                returns_tensor = returns_tensor.cuda()
-            self._returns = Variable(returns_tensor)
-        return self._returns
+                self._returns = self._returns.cuda()
+        return Variable(self._returns, volatile=self.volatile)
 
     @property
     def mask(self):
         if self._mask is None:
             mask = np.stack(self._mask_list[:-1], axis=0)
-            mask_tensor = torch.from_numpy(mask).float()
+            self._mask = torch.from_numpy(mask).float()
             if self.is_cuda:
-                mask_tensor = mask_tensor.cuda()
-            self._mask = Variable(mask_tensor)
-        return self._mask
+                self._mask = self._mask.cuda()
+        return Variable(self._mask, volatile=self.volatile)
 
     def gae(self, values, tau=1.0):
         # Add an additional 0 at the end of values for
@@ -95,6 +91,9 @@ class BatchEpisodes(object):
             advantages.data[i] = gae
 
         return advantages
+
+    def volatile(self, arg=True):
+        self.volatile = arg
 
     def append(self, observations, actions, rewards, dones):
         self._observations_list.append(observations.astype(np.float32))
