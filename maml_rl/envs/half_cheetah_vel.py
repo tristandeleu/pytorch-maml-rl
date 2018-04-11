@@ -47,8 +47,12 @@ class HalfCheetahVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self._goal_vel = task['velocity']
 
     def reset(self):
-        qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-.1, high=.1)
-        qvel = self.init_qvel + self.np_random.randn(self.model.nv) * 0.1
+
+        qpos = self.init_qpos + \ np.random.normal(size=self.init_qpos.shape) * 0.01
+        qvel = self.init_qvel  + \ np.random.normal(size=self.init_qvel.shape) * 0.1
+
+        #qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-.1, high=.1)
+        #qvel = self.init_qvel + self.np_random.randn(self.model.nv) * 0.1
         self.set_state(qpos, qvel)
         return self._get_obs()
 
