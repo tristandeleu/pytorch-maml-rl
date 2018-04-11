@@ -20,39 +20,30 @@ register(
     max_episode_steps=10
 )
 
-# Ant for Velocity
+# Mujoco
 # ----------------------------------------
 
 register(
     'AntVelEnv-v0',
-    entry_point='maml_rl.envs.ant_vel:AntVelEnv',
+    entry_point='maml_rl.envs.mujoco.ant_vel:AntVelEnv',
     max_episode_steps=200
 )
-
-# Ant for Direction
-# ----------------------------------------
 
 register(
     'AntDirEnv-v0',
-    entry_point='maml_rl.envs.ant_dir:AntDirEnv',
+    entry_point='maml_rl.envs.mujoco.ant_dir:AntDirEnv',
     max_episode_steps=200
 )
-
-# Half-Cheetah for Velocity
-# ----------------------------------------
 
 register(
     'HalfCheetahVelEnv-v0',
-    entry_point='maml_rl.envs.half_cheetah_vel:HalfCheetahVelEnv',
+    entry_point='maml_rl.envs.mujoco.half_cheetah_vel:HalfCheetahVelEnv',
     max_episode_steps=200
 )
 
-# Half-Cheetah for Direction
-# ----------------------------------------
-
 register(
     'HalfCheetahDirEnv-v0',
-    entry_point='maml_rl.envs.half_cheetah_dir:HalfCheetahDirEnv',
+    entry_point='maml_rl.envs.mujoco.half_cheetah_dir:HalfCheetahDirEnv',
     max_episode_steps=200
 )
 
