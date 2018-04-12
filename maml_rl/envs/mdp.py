@@ -25,8 +25,8 @@ class TabularMDPEnv(gym.Env):
         return [seed]
 
     def sample_tasks(self, num_tasks):
-        transitions = self.np_random.dirichlet(
-            np.ones(self.num_states), size=(num_tasks, self.num_states))
+        transitions = self.np_random.dirichlet(np.ones(self.num_states),
+            size=(num_tasks, self.num_states, self.num_actions))
         rewards_mean = self.np_random.normal(1.0, 1.0,
             size=(num_tasks, self.num_states, self.num_actions))
         tasks = [{'transitions': transition, 'rewards_mean': reward_mean}
@@ -39,7 +39,8 @@ class TabularMDPEnv(gym.Env):
         self._rewards_mean = task['rewards_mean']
 
     def reset(self):
-        self._state = self.np_random.choice(self.num_states)
+        # From Duan 2016: "an episode always starts on the first state"
+        self._state = 0
         observation = np.asarray([self._state], dtype=np.float32)
 
         return observation
@@ -47,10 +48,10 @@ class TabularMDPEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action)
         mean = self._rewards_mean[self._state, action]
-        reward = self.np_random.normal(mean, 1)
+        reward = self.np_random.normal(mean, 1.0)
 
         self._state = self.np_random.choice(self.num_states,
-            p=self._transitions[self._state])
+            p=self._transitions[self._state, action])
         observation = np.asarray([self._state], dtype=np.float32)
 
         return observation, reward, False, self._task
