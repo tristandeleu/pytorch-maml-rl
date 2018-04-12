@@ -16,16 +16,13 @@ policy = CategoricalMLPPolicy(sampler.envs.observation_space.shape[0],
 baseline = LinearFeatureBaseline(sampler.envs.observation_space.shape[0])
 
 metalearner = MetaLearner(sampler, policy, baseline)
-optimizer = optim.Adam(policy.parameters(), lr=1e-3)
+# optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 
 all_rewards = []
 for epoch in trange(1000):
-    optimizer.zero_grad()
     episodes = metalearner.sample(meta_batch_size=20)
-    loss, rewards = metalearner.loss(episodes)
-    loss.backward()
-    optimizer.step()
-    all_rewards.append(rewards.data[0])
+    metalearner.step(episodes)
+    # all_rewards.append(rewards.data[0])
 
 with open('tmp/rewards.npy', 'wb') as f:
     np.save(f, np.asarray(all_rewards))
