@@ -131,15 +131,18 @@ class MetaLearner(object):
         return (torch.mean(torch.cat(losses, dim=0)),
                 torch.mean(torch.cat(kls, dim=0)), pis)
 
-    def step(self, episodes, max_kl=1e-3):
+    def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
+             ls_max_steps=10):
         self.policy.zero_grad()
         old_loss, _, old_pis = self.surrogate_loss(episodes)
         grads = torch.autograd.grad(old_loss, self.policy.parameters())
         grads = parameters_to_vector(grads)
 
         # Compute the step direction with Conjugate Gradient
-        hessian_vector_product = self.hessian_vector_product(episodes)
-        stepdir = conjugate_gradient(hessian_vector_product, grads)
+        hessian_vector_product = self.hessian_vector_product(episodes,
+            damping=cg_damping)
+        stepdir = conjugate_gradient(hessian_vector_product, grads,
+            cg_iters=cg_iters)
 
         # Compute the Lagrange multiplier
         shs = 0.5 * torch.dot(stepdir, hessian_vector_product(stepdir))
@@ -156,7 +159,7 @@ class MetaLearner(object):
 
         # Line search
         step_size = 1.0
-        for _ in range(10):
+        for _ in range(ls_max_steps):
             vector_to_parameters(old_params + step_size * step,
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
