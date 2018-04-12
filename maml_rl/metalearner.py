@@ -88,18 +88,6 @@ class MetaLearner(object):
             episodes.append((train_episodes, valid_episodes))
         return episodes
 
-    def loss(self, episodes):
-        # TODO: To be deprecated
-        losses = []
-        for train_episodes, valid_episodes in episodes:
-            params = self.adapt(train_episodes)
-            valid_loss = self.inner_loss(valid_episodes, params=params)
-            losses.append(valid_loss)
-        total_rewards = torch.cat([torch.sum(valid_episodes.rewards)
-            for (_, valid_episodes) in episodes])
-
-        return torch.mean(torch.cat(losses, dim=0)), torch.mean(total_rewards)
-
     def hessian_vector_product(self, episodes, damping=1e-2):
         def _product(vector):
             _, kl, _ = self.surrogate_loss(episodes)
