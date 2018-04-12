@@ -8,6 +8,12 @@ from copy import deepcopy
 from maml_rl.distributions import Categorical, Normal
 from maml_rl.distributions.kl import kl_divergence
 
+def weighted_mean(tensor, weights=None):
+    if weights is None:
+        return torch.mean(tensor)
+    sum_weights = torch.sum(weights)
+    return torch.sum(tensor * weights) / sum_weights
+
 def detach_distribution(pi):
     if isinstance(pi, Categorical):
         distribution = Categorical(logits=pi.logits.detach())
@@ -58,8 +64,7 @@ class MetaLearner(object):
         # Sum the log probabilities in case of continuous actions
         if log_probs.dim() > 2:
             log_probs = torch.sum(log_probs, dim=2)
-        # TODO: Use episodes.mask for mean
-        loss = -torch.mean(log_probs * advantages)
+        loss = -weighted_mean(log_probs * advantages, weights=episodes.mask)
 
         return loss
 
@@ -120,12 +125,12 @@ class MetaLearner(object):
             ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                 - old_pi.log_prob(valid_episodes.actions))
 
-            # TODO: Use valid_episodes.mask for mean
-            loss = torch.mean(ratio * advantages)
+            loss = weighted_mean(ratio * advantages,
+                weights=valid_episodes.mask)
             losses.append(loss)
 
-            # TODO: Use valid_episodes.mask for mean
-            kl = torch.mean(kl_divergence(pi, old_pi))
+            kl = weighted_mean(kl_divergence(pi, old_pi),
+                weights=valid_episodes.mask)
             kls.append(kl)
 
         return (torch.mean(torch.cat(losses, dim=0)),
