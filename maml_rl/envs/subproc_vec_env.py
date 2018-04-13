@@ -1,12 +1,16 @@
 import numpy as np
 import multiprocessing as mp
+import Queue
 import gym
 
 class EnvWorker(mp.Process):
-    def __init__(self, remote, env_fn):
+    def __init__(self, remote, env_fn, queue, lock):
         super(EnvWorker, self).__init__()
         self.remote = remote
         self.env = env_fn()
+        self.queue = queue
+        self.lock = lock
+        self.task_id = None
         self.done = False
 
     def empty_step(self):
@@ -15,18 +19,29 @@ class EnvWorker(mp.Process):
         reward, done = 0.0, True
         return observation, reward, done, {}
 
+    def try_reset(self):
+        try:
+            with self.lock:
+                self.task_id = self.queue.get(False)
+            self.done = (self.task_id is None)
+        except Queue.Empty:
+            self.done = True
+        observation = (np.zeros(self.env.observation_space.shape,
+            dtype=np.float32) if self.done else self.env.reset())
+        return observation
+
     def run(self):
         while True:
             command, data = self.remote.recv()
             if command == 'step':
                 observation, reward, done, info = (self.empty_step()
                     if self.done else self.env.step(data))
-                self.done |= done
-                self.remote.send((observation, reward, done, info))
+                if done and (not self.done):
+                    observation = self.try_reset()
+                self.remote.send((observation, reward, done, self.task_id, info))
             elif command == 'reset':
-                observation = self.env.reset()
-                self.done = False
-                self.remote.send(observation)
+                observation = self.try_reset()
+                self.remote.send((observation, self.task_id))
             elif command == 'reset_task':
                 self.env.unwrapped.reset_task(data)
                 self.remote.send(True)
@@ -40,10 +55,11 @@ class EnvWorker(mp.Process):
                 raise NotImplementedError()
 
 class SubprocVecEnv(gym.Env):
-    def __init__(self, env_factory):
+    def __init__(self, env_factory, queue):
+        self.lock = mp.Lock()
         self.remotes, self.work_remotes = zip(*[mp.Pipe() for _ in env_factory])
-        self.workers = [EnvWorker(remote, env_fn) for (remote, env_fn)
-            in zip(self.work_remotes, env_factory)]
+        self.workers = [EnvWorker(remote, env_fn, queue, self.lock)
+            for (remote, env_fn) in zip(self.work_remotes, env_factory)]
         for worker in self.workers:
             worker.daemon = True
             worker.start()
@@ -69,13 +85,15 @@ class SubprocVecEnv(gym.Env):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        observations, rewards, dones, infos = zip(*results)
-        return np.stack(observations), np.stack(rewards), np.stack(dones), infos
+        observations, rewards, dones, task_ids, infos = zip(*results)
+        return np.stack(observations), np.stack(rewards), np.stack(dones), np.stack(task_ids), infos
 
     def reset(self):
         for remote in self.remotes:
             remote.send(('reset', None))
-        return np.stack([remote.recv() for remote in self.remotes])
+        results = [remote.recv() for remote in self.remotes]
+        observations, task_ids = zip(*results)
+        return np.stack(observations), np.stack(task_ids)
 
     def reset_task(self, tasks):
         for remote, task in zip(self.remotes, tasks):

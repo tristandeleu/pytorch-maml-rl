@@ -17,18 +17,24 @@ class BatchSampler(object):
         self.batch_size = batch_size
         self.num_workers = num_workers
         
-        self.envs = SubprocVecEnv([make_env(env_name) for _ in range(num_workers)])
+        self.queue = mp.Queue()
+        self.envs = SubprocVecEnv([make_env(env_name) for _ in range(num_workers)],
+            queue=self.queue)
         self._env = gym.make(env_name)
 
     def sample(self, policy, params=None, gamma=0.95, is_cuda=False):
         episodes = BatchEpisodes(gamma=gamma, is_cuda=is_cuda)
-        observations = self.envs.reset()
+        for i in range(self.batch_size):
+            self.queue.put(i)
+        for _ in range(self.num_workers):
+            self.queue.put(None)
+        observations, batch_ids = self.envs.reset()
         dones = [False]
-        while not all(dones):
+        while (not all(dones)) or (not self.queue.empty()):
             observations_var = Variable(torch.from_numpy(observations), volatile=True)
             actions_var = policy(observations_var, params=params).sample()
             actions = actions_var.data.cpu().numpy()
-            new_observations, rewards, dones, _ = self.envs.step(actions)
+            new_observations, rewards, dones, batch_ids, _ = self.envs.step(actions)
             episodes.append(observations, actions, rewards, dones)
             observations = new_observations
         return episodes
