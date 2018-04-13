@@ -19,8 +19,10 @@ metalearner = MetaLearner(sampler, policy, baseline)
 
 all_rewards = []
 for epoch in trange(200):
-    episodes = metalearner.sample(meta_batch_size=20)
+    tasks = sampler.sample_tasks(num_tasks=20)
+    episodes = metalearner.sample(tasks)
     metalearner.step(episodes)
+
     rewards = torch.mean(torch.cat([torch.sum(valid_episodes.rewards)
         for _, valid_episodes in episodes], dim=0))
     all_rewards.append(rewards.data[0])

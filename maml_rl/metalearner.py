@@ -78,8 +78,7 @@ class MetaLearner(object):
 
         return params
 
-    def sample(self, meta_batch_size=20):
-        tasks = self.sampler.sample_tasks(num_tasks=meta_batch_size)
+    def sample(self, tasks):
         episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
