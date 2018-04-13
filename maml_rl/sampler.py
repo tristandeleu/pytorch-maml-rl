@@ -1,6 +1,7 @@
 import gym
 import torch
 from torch.autograd import Variable
+import multiprocessing as mp
 
 from maml_rl.envs.subproc_vec_env import SubprocVecEnv
 from maml_rl.episode import BatchEpisodes
@@ -11,11 +12,12 @@ def make_env(env_name):
     return _make_env
 
 class BatchSampler(object):
-    def __init__(self, env_name, batch_size):
+    def __init__(self, env_name, batch_size, num_workers=mp.cpu_count() - 1):
         self.env_name = env_name
         self.batch_size = batch_size
+        self.num_workers = num_workers
         
-        self.envs = SubprocVecEnv([make_env(env_name) for _ in range(batch_size)])
+        self.envs = SubprocVecEnv([make_env(env_name) for _ in range(num_workers)])
         self._env = gym.make(env_name)
 
     def sample(self, policy, params=None, gamma=0.95, is_cuda=False):
@@ -32,7 +34,7 @@ class BatchSampler(object):
         return episodes
 
     def reset_task(self, task):
-        tasks = [task for _ in range(self.batch_size)]
+        tasks = [task for _ in range(self.num_workers)]
         reset = self.envs.reset_task(tasks)
         return all(reset)
 
