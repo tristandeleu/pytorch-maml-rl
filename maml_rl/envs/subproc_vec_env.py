@@ -20,12 +20,12 @@ class EnvWorker(mp.Process):
         return observation, reward, done, {}
 
     def try_reset(self):
-        try:
-            with self.lock:
-                self.task_id = self.queue.get(False)
-            self.done = (self.task_id is None)
-        except Queue.Empty:
-            self.done = True
+        with self.lock:
+            try:
+                self.task_id = self.queue.get(True)
+                self.done = (self.task_id is None)
+            except Queue.Empty:
+                self.done = True
         observation = (np.zeros(self.env.observation_space.shape,
             dtype=np.float32) if self.done else self.env.reset())
         return observation
@@ -86,14 +86,14 @@ class SubprocVecEnv(gym.Env):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         observations, rewards, dones, task_ids, infos = zip(*results)
-        return np.stack(observations), np.stack(rewards), np.stack(dones), np.stack(task_ids), infos
+        return np.stack(observations), np.stack(rewards), np.stack(dones), task_ids, infos
 
     def reset(self):
         for remote in self.remotes:
             remote.send(('reset', None))
         results = [remote.recv() for remote in self.remotes]
         observations, task_ids = zip(*results)
-        return np.stack(observations), np.stack(task_ids)
+        return np.stack(observations), task_ids
 
     def reset_task(self, tasks):
         for remote, task in zip(self.remotes, tasks):

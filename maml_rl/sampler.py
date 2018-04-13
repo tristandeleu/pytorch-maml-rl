@@ -23,7 +23,7 @@ class BatchSampler(object):
         self._env = gym.make(env_name)
 
     def sample(self, policy, params=None, gamma=0.95, is_cuda=False):
-        episodes = BatchEpisodes(gamma=gamma, is_cuda=is_cuda)
+        episodes = BatchEpisodes(batch_size=self.batch_size, gamma=gamma, is_cuda=is_cuda)
         for i in range(self.batch_size):
             self.queue.put(i)
         for _ in range(self.num_workers):
@@ -34,9 +34,10 @@ class BatchSampler(object):
             observations_var = Variable(torch.from_numpy(observations), volatile=True)
             actions_var = policy(observations_var, params=params).sample()
             actions = actions_var.data.cpu().numpy()
-            new_observations, rewards, dones, batch_ids, _ = self.envs.step(actions)
-            episodes.append(observations, actions, rewards, dones)
+            new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
+            episodes.append(observations, actions, rewards, batch_ids)
             observations = new_observations
+            batch_ids = new_batch_ids
         return episodes
 
     def reset_task(self, task):
