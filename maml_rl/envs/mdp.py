@@ -11,8 +11,8 @@ class TabularMDPEnv(gym.Env):
         self.num_actions = num_actions
         
         self.action_space = spaces.Discrete(num_actions)
-        self.observation_space = spaces.Box(low=0,
-            high=num_states - 1, shape=(1,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0.0,
+            high=1.0, shape=(num_states,), dtype=np.float32)
 
         self._task = None
         self._transitions = None
@@ -41,7 +41,8 @@ class TabularMDPEnv(gym.Env):
     def reset(self):
         # From Duan 2016: "an episode always starts on the first state"
         self._state = 0
-        observation = np.asarray([self._state], dtype=np.float32)
+        observation = np.zeros(self.num_states, dtype=np.float32)
+        observation[self._state] = 1.0
 
         return observation
 
@@ -52,6 +53,7 @@ class TabularMDPEnv(gym.Env):
 
         self._state = self.np_random.choice(self.num_states,
             p=self._transitions[self._state, action])
-        observation = np.asarray([self._state], dtype=np.float32)
+        observation = np.zeros(self.num_states, dtype=np.float32)
+        observation[self._state] = 1.0
 
         return observation, reward, False, self._task
