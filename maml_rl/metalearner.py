@@ -1,49 +1,12 @@
 import torch
 import torch.nn.functional as F
-from torch.autograd import Variable
 from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
 from copy import deepcopy
 # TODO: Replace by torch.distributions in Pytorch 0.4
-from maml_rl.distributions import Categorical, Normal
 from maml_rl.distributions.kl import kl_divergence
-
-def weighted_mean(tensor, weights=None):
-    if weights is None:
-        return torch.mean(tensor)
-    sum_weights = torch.sum(weights)
-    return torch.sum(tensor * weights) / sum_weights
-
-def detach_distribution(pi):
-    if isinstance(pi, Categorical):
-        distribution = Categorical(logits=pi.logits.detach())
-    elif isinstance(pi, Normal):
-        distribution = Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
-    else:
-        raise NotImplementedError('Only `Categorical` and `Normal` '
-                                  'policies are valid policies.')
-    return distribution
-
-def conjugate_gradient(f_Ax, b, cg_iters=10, residual_tol=1e-10):
-    p = Variable(b.data)
-    r = Variable(b.data)
-    x = torch.zeros_like(b).float()
-    rdotr = torch.dot(r, r)
-
-    for i in range(cg_iters):
-        z = Variable(f_Ax(p).data)
-        v = rdotr / torch.dot(p, z)
-        x += v * p
-        r -= v * z
-        newrdotr = torch.dot(r, r)
-        mu = newrdotr / rdotr
-        p = r + mu * p
-
-        rdotr = newrdotr
-        if rdotr.data[0] < residual_tol:
-            break
-
-    return Variable(x.data)
+from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
+from maml_rl.utils.optimization import conjugate_gradient
 
 class MetaLearner(object):
     def __init__(self, sampler, policy, baseline,
