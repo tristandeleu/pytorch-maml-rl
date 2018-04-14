@@ -1,7 +1,12 @@
 import numpy as np
 import multiprocessing as mp
-import Queue
 import gym
+import sys
+is_py2 = (sys.version[0] == '2')
+if is_py2:
+    import Queue as queue
+else:
+    import queue as queue
 
 class EnvWorker(mp.Process):
     def __init__(self, remote, env_fn, queue, lock):
@@ -24,7 +29,7 @@ class EnvWorker(mp.Process):
             try:
                 self.task_id = self.queue.get(True)
                 self.done = (self.task_id is None)
-            except Queue.Empty:
+            except queue.Empty:
                 self.done = True
         observation = (np.zeros(self.env.observation_space.shape,
             dtype=np.float32) if self.done else self.env.reset())
