@@ -5,7 +5,8 @@ from torch.nn.utils.convert_parameters import (vector_to_parameters,
 from copy import deepcopy
 # TODO: Replace by torch.distributions in Pytorch 0.4
 from maml_rl.distributions.kl import kl_divergence
-from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
+from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
+                                       weighted_normalize)
 from maml_rl.utils.optimization import conjugate_gradient
 
 class MetaLearner(object):
@@ -21,6 +22,7 @@ class MetaLearner(object):
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
         advantages = episodes.gae(values, tau=1.0)
+        advantages = weighted_normalize(advantages, weights=episodes.mask)
 
         pi = self.policy(episodes.observations, params=params)
         log_probs = pi.log_prob(episodes.actions)
