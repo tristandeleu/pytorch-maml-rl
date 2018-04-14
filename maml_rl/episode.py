@@ -94,10 +94,10 @@ class BatchEpisodes(object):
 
         deltas = self.rewards + self.gamma * values[1:] - values[:-1]
         advantages = torch.zeros_like(deltas).float()
-        gae = torch.zeros(self.batch_size).float()
+        gae = torch.zeros_like(deltas[0]).float()
         for i in range(len(self) - 1, -1, -1):
-            gae = gae * self.gamma * tau + deltas[i].data
-            advantages.data[i] = gae
+            gae = gae * self.gamma * tau + deltas[i]
+            advantages[i] = gae
 
         return advantages
 
