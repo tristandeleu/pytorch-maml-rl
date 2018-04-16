@@ -28,16 +28,16 @@ def main(args):
         num_workers=args.num_workers)
     if continuous_actions:
         policy = NormalMLPPolicy(
-            np.prod(sampler.envs.observation_space.shape),
-            np.prod(sampler.envs.action_space.shape),
+            int(np.prod(sampler.envs.observation_space.shape)),
+            int(np.prod(sampler.envs.action_space.shape)),
             hidden_sizes=(args.hidden_size,) * args.num_layers)
     else:
         policy = CategoricalMLPPolicy(
-            np.prod(sampler.envs.observation_space.shape),
+            int(np.prod(sampler.envs.observation_space.shape)),
             sampler.envs.action_space.n,
             hidden_sizes=(args.hidden_size,) * args.num_layers)
     baseline = LinearFeatureBaseline(
-        np.prod(sampler.envs.observation_space.shape))
+        int(np.prod(sampler.envs.observation_space.shape)))
 
     metalearner = MetaLearner(sampler, policy, baseline,
         gamma=args.gamma, fast_lr=args.fast_lr)
