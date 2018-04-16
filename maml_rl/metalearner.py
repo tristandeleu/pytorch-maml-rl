@@ -18,7 +18,7 @@ class MetaLearner(object):
         self.gamma = gamma
         self.fast_lr = fast_lr
         self.is_cuda = is_cuda
-    
+
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
         advantages = episodes.gae(values, tau=1.0)
@@ -86,13 +86,14 @@ class MetaLearner(object):
             advantages = valid_episodes.gae(values, tau=1.0)
             ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                 - old_pi.log_prob(valid_episodes.actions))
+            ratio = torch.sum(ratio, dim=2)
 
             loss = weighted_mean(ratio * advantages,
                 weights=valid_episodes.mask)
             losses.append(loss)
 
             kl = weighted_mean(kl_divergence(pi, old_pi),
-                weights=valid_episodes.mask)
+                weights=valid_episodes.mask.unsqueeze(2))
             kls.append(kl)
 
         return (torch.mean(torch.cat(losses, dim=0)),
