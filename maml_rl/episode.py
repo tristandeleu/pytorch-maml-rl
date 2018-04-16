@@ -38,7 +38,7 @@ class BatchEpisodes(object):
     @property
     def actions(self):
         if self._actions is None:
-            action_shape = self._actions_list[0][0].shape
+            action_shape = self._actions_list[0][0].shape or (1,)
             actions = np.zeros((len(self), self.batch_size)
                 + action_shape, dtype=np.float32)
             for i in range(self.batch_size):

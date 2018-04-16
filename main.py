@@ -8,21 +8,33 @@ from maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.sampler import BatchSampler
 
+from tensorboardX import SummaryWriter
+
+def total_rewards(episodes_rewards, aggregation=torch.mean):
+    rewards = torch.mean(torch.cat([aggregation(torch.sum(rewards, dim=0))
+        for rewards in episodes_rewards], dim=0))
+    return rewards.data[0]
+
 def main(args):
     continuous_actions = (args.env_name in ['AntVelEnv-v0', 'AntDirEnv-v0',
         'HalfCheetahVelEnv-v0', 'HalfCheetahDirEnv-v0', '2DNavigation-v0'])
+
+    writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
+    save_folder = './saves/{0}'.format(args.output_folder)
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
 
     sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
         num_workers=args.num_workers)
     if continuous_actions:
         policy = NormalMLPPolicy(
             np.prod(sampler.envs.observation_space.shape),
-            np.prod(sampler.envs.action_space.shape)
+            np.prod(sampler.envs.action_space.shape),
             hidden_sizes=(args.hidden_size,) * args.num_layers)
     else:
         policy = CategoricalMLPPolicy(
             np.prod(sampler.envs.observation_space.shape),
-            sampler.envs.action_space.n
+            sampler.envs.action_space.n,
             hidden_sizes=(args.hidden_size,) * args.num_layers)
     baseline = LinearFeatureBaseline(
         np.prod(sampler.envs.observation_space.shape))
@@ -38,9 +50,21 @@ def main(args):
         metalearner.step(episodes, max_kl=args.max_kl, cg_iters=args.cg_iters,
             cg_damping=args.cg_damping, ls_max_steps=args.ls_max_steps)
 
+        # Tensorboard
+        writer.add_scalar('total_rewards/before_update',
+            total_rewards([ep.rewards for ep, _ in episodes]), batch)
+        writer.add_scalar('total_rewards/after_update',
+            total_rewards([ep.rewards for _, ep in episodes]), batch)
+
+        # Save policy network
+        with open(os.path.join(save_folder,
+                'policy-{0}.pt'.format(batch)), 'wb') as f:
+            torch.save(policy.state_dict(), f)
+
 
 if __name__ == '__main__':
     import argparse
+    import os
     import multiprocessing as mp
 
     parser = argparse.ArgumentParser(description='MAML')
@@ -78,12 +102,24 @@ if __name__ == '__main__':
         help='maximum number of iterations for line search')
 
     # Miscellaneous
+    parser.add_argument('--output-folder', type=str, default='maml',
+        help='name of the output folder')
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling')
     parser.add_argument('--cuda', action='store_const', const=True,
         help='use CUDA (if available)')
 
     args = parser.parse_args()
-    args.cuda &= torch.cuda.is_available()
+
+    # Create logs and saves folder if they don't exist
+    if not os.path.exists('./logs'):
+        os.makedirs('./logs')
+    if not os.path.exists('./saves'):
+        os.makedirs('./saves')
+    # Cuda
+    args.cuda = (args.cuda is not None) and torch.cuda.is_available()
+    # Slurm
+    if 'SLURM_JOB_ID' in os.environ:
+        args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])
 
     main(args)
