@@ -39,7 +39,7 @@ class HalfCheetahVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.sim.data.qpos.flat[1:],
             self.sim.data.qvel.flat,
             self.get_body_com("torso"),
-        ])
+        ]).astype(np.float32).reshape(-1)
 
     def sample_tasks(self, num_tasks):
         velocities = np.random.uniform(0.0, 2.0, size=(num_tasks,))
