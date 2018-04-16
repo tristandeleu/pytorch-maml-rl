@@ -38,7 +38,9 @@ class BatchEpisodes(object):
     @property
     def actions(self):
         if self._actions is None:
-            actions = np.zeros((len(self), self.batch_size), dtype=np.float32)
+            action_shape = self._actions_list[0][0].shape
+            actions = np.zeros((len(self), self.batch_size)
+                + action_shape, dtype=np.float32)
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
@@ -114,4 +116,4 @@ class BatchEpisodes(object):
             self._rewards_list[batch_id].append(reward.astype(np.float32))
 
     def __len__(self):
-        return max(map(len, self._actions_list))
+        return max(map(len, self._rewards_list))

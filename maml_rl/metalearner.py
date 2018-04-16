@@ -26,9 +26,7 @@ class MetaLearner(object):
 
         pi = self.policy(episodes.observations, params=params)
         log_probs = pi.log_prob(episodes.actions)
-        # Sum the log probabilities in case of continuous actions
-        if log_probs.dim() > 2:
-            log_probs = torch.sum(log_probs, dim=2)
+        log_probs = torch.sum(log_probs, dim=2)
         loss = -weighted_mean(log_probs * advantages, weights=episodes.mask)
 
         return loss
