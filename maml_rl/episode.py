@@ -41,14 +41,9 @@ class BatchEpisodes(object):
             action_shape = self._actions_list[0][0].shape
             actions = np.zeros((len(self), self.batch_size)
                 + action_shape, dtype=np.float32)
-            # print action_shape
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
-                # print actions[:length, i].shape
-                if action_shape == (1,):
-                    actions[:length, i, 0] = np.stack(self._actions_list[i], axis=0)
-                else:
-                    actions[:length, i] = np.stack(self._actions_list[i], axis=0)
+                actions[:length, i] = np.stack(self._actions_list[i], axis=0)
             self._actions = torch.from_numpy(actions).float()
             if self.is_cuda:
                 self._actions = self._actions.cuda()
