@@ -26,7 +26,8 @@ class MetaLearner(object):
 
         pi = self.policy(episodes.observations, params=params)
         log_probs = pi.log_prob(episodes.actions)
-        log_probs = torch.sum(log_probs, dim=2)
+        if log_probs.dim() > 2:
+            log_probs = torch.sum(log_probs, dim=2)
         loss = -weighted_mean(log_probs * advantages, weights=episodes.mask)
 
         return loss
@@ -86,14 +87,15 @@ class MetaLearner(object):
             advantages = valid_episodes.gae(values, tau=1.0)
             ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                 - old_pi.log_prob(valid_episodes.actions))
-            ratio = torch.sum(ratio, dim=2)
+            if ratio.dim() > 2:
+                ratio = torch.sum(ratio, dim=2)
 
             loss = weighted_mean(ratio * advantages,
                 weights=valid_episodes.mask)
             losses.append(loss)
 
             kl = weighted_mean(kl_divergence(pi, old_pi),
-                weights=valid_episodes.mask.unsqueeze(2))
+                weights=valid_episodes.mask.expand_as(valid_episodes.actions))
             kls.append(kl)
 
         return (torch.mean(torch.cat(losses, dim=0)),
