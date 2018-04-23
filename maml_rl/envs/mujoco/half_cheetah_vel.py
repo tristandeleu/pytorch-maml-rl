@@ -61,4 +61,19 @@ class HalfCheetahVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return self._get_obs()
 
     def viewer_setup(self):
+        self.viewer.cam.type = 1
+        self.viewer.cam.trackbodyid = 1
         self.viewer.cam.distance = self.model.stat.extent * 0.5
+        # Hide the overlay
+        self.viewer._hide_overlay = True
+
+    def render(self, mode='human'):
+        if mode == 'rgb_array':
+            self._get_viewer().render()
+            # window size used for old mujoco-py:
+            width, height = 500, 500
+            data = self._get_viewer().read_pixels(width, height, depth=False)
+            # original image is upside-down, so flip it
+            return data
+        elif mode == 'human':
+            self._get_viewer().render()
