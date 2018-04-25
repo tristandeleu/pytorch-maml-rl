@@ -1,6 +1,5 @@
 import torch
-# TODO: Replace by torch.distributions in Pytorch 0.4
-from maml_rl.distributions import Categorical, Normal
+from torch.distributions import Categorical, Normal
 
 def weighted_mean(tensor, dim=None, weights=None):
     if weights is None:

@@ -34,9 +34,10 @@ class BatchSampler(object):
             observations_tensor = torch.from_numpy(observations)
             if is_cuda:
                 observations_tensor = observations_tensor.cuda()
-            observations_var = Variable(observations_tensor, volatile=True)
-            actions_var = policy(observations_var, params=params).sample()
-            actions = actions_var.data.cpu().numpy()
+            with torch.no_grad():
+                observations_var = Variable(observations_tensor)
+                actions_var = policy(observations_var, params=params).sample()
+                actions = actions_var.data.cpu().numpy()
             new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
             episodes.append(observations, actions, rewards, batch_ids)
             observations = new_observations

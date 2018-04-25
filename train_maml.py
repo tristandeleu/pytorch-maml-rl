@@ -11,9 +11,9 @@ from maml_rl.sampler import BatchSampler
 from tensorboardX import SummaryWriter
 
 def total_rewards(episodes_rewards, aggregation=torch.mean):
-    rewards = torch.mean(torch.cat([aggregation(torch.sum(rewards, dim=0))
+    rewards = torch.mean(torch.stack([aggregation(torch.sum(rewards, dim=0))
         for rewards in episodes_rewards], dim=0))
-    return rewards.data[0]
+    return rewards.item()
 
 def main(args):
     continuous_actions = (args.env_name in ['AntVelEnv-v0', 'AntDirEnv-v0',

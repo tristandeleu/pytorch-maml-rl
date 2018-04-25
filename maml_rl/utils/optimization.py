@@ -17,7 +17,7 @@ def conjugate_gradient(f_Ax, b, cg_iters=10, residual_tol=1e-10):
         p = r + mu * p
 
         rdotr = newrdotr
-        if rdotr.data[0] < residual_tol:
+        if rdotr.item() < residual_tol:
             break
 
     return Variable(x.data)

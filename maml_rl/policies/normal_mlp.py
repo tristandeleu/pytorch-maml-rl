@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Normal
 
 from collections import OrderedDict
 from maml_rl.policies.policy import Policy
-# TODO: Replace by torch.distributions in Pytorch 0.4
-from maml_rl.distributions import Normal
 
 class NormalMLPPolicy(Policy):
     def __init__(self, input_size, output_size,
