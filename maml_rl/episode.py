@@ -4,11 +4,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 class BatchEpisodes(object):
-    def __init__(self, batch_size, gamma=0.95, is_cuda=False, volatile=False):
+    def __init__(self, batch_size, gamma=0.95, device='cpu'):
         self.batch_size = batch_size
         self.gamma = gamma
-        self.is_cuda = is_cuda
-        self._volatile = volatile
+        self.device = device
 
         self._observations_list = [[] for _ in range(batch_size)]
         self._actions_list = [[] for _ in range(batch_size)]
@@ -30,10 +29,9 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._observations_list[i])
                 observations[:length, i] = np.stack(self._observations_list[i], axis=0)
-            self._observations = torch.from_numpy(observations).float()
-            if self.is_cuda:
-                self._observations = self._observations.cuda()
-        return Variable(self._observations, volatile=self._volatile)
+            self._observations = torch.from_numpy(observations,
+                dtype=torch.float32, device=self.device)
+        return self._observations
 
     @property
     def actions(self):
@@ -44,10 +42,9 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
-            self._actions = torch.from_numpy(actions).float()
-            if self.is_cuda:
-                self._actions = self._actions.cuda()
-        return Variable(self._actions, volatile=self._volatile)
+            self._actions = torch.from_numpy(actions,
+                dtype=torch.float32, device=self.device)
+        return self._actions
 
     @property
     def rewards(self):
@@ -56,10 +53,9 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._rewards_list[i])
                 rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
-            self._rewards = torch.from_numpy(rewards).float()
-            if self.is_cuda:
-                self._rewards = self._rewards.cuda()
-        return Variable(self._rewards, volatile=self._volatile)
+            self._rewards = torch.from_numpy(rewards,
+                dtype=torch.float32, device=self.device)
+        return self._rewards
 
     @property
     def returns(self):
@@ -71,10 +67,9 @@ class BatchEpisodes(object):
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + rewards[i] * mask[i]
                 returns[i] = return_
-            self._returns = torch.from_numpy(returns).float()
-            if self.is_cuda:
-                self._returns = self._returns.cuda()
-        return Variable(self._returns, volatile=self._volatile)
+            self._returns = torch.from_numpy(returns,
+                dtype=torch.float32, device=self.device)
+        return self._returns
 
     @property
     def mask(self):
@@ -83,10 +78,9 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 mask[:length, i] = 1.0
-            self._mask = torch.from_numpy(mask).float()
-            if self.is_cuda:
-                self._mask = self._mask.cuda()
-        return Variable(self._mask, volatile=self._volatile)
+            self._mask = torch.from_numpy(mask,
+                dtype=torch.float32, device=self.device)
+        return self._mask
 
     def gae(self, values, tau=1.0):
         # Add an additional 0 at the end of values for
@@ -102,9 +96,6 @@ class BatchEpisodes(object):
             advantages[i] = gae
 
         return advantages
-
-    def volatile(self, arg=True):
-        self._volatile = arg
 
     def append(self, observations, actions, rewards, batch_ids):
         for observation, action, reward, batch_id in zip(
