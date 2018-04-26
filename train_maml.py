@@ -40,9 +40,7 @@ def main(args):
         int(np.prod(sampler.envs.observation_space.shape)))
 
     metalearner = MetaLearner(sampler, policy, baseline,
-        gamma=args.gamma, fast_lr=args.fast_lr)
-    if args.cuda:
-        metalearner.cuda()
+        gamma=args.gamma, fast_lr=args.fast_lr, device=args.device)
 
     for batch in range(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
@@ -106,8 +104,8 @@ if __name__ == '__main__':
         help='name of the output folder')
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling')
-    parser.add_argument('--cuda', action='store_const', const=True,
-        help='use CUDA (if available)')
+    parser.add_argument('--device', type=str, default='cpu',
+        help='set the device (cpu or cuda)')
 
     args = parser.parse_args()
 
@@ -116,8 +114,9 @@ if __name__ == '__main__':
         os.makedirs('./logs')
     if not os.path.exists('./saves'):
         os.makedirs('./saves')
-    # Cuda
-    args.cuda = (args.cuda is not None) and torch.cuda.is_available()
+    # Device
+    args.device = torch.device(args.device
+        if torch.cuda.is_available() else 'cpu')
     # Slurm
     if 'SLURM_JOB_ID' in os.environ:
         args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])

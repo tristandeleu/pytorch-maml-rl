@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 class BatchEpisodes(object):
     def __init__(self, batch_size, gamma=0.95, device='cpu'):
@@ -29,8 +28,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._observations_list[i])
                 observations[:length, i] = np.stack(self._observations_list[i], axis=0)
-            self._observations = torch.from_numpy(observations,
-                dtype=torch.float32, device=self.device)
+            self._observations = torch.from_numpy(observations).to(self.device)
         return self._observations
 
     @property
@@ -42,8 +40,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
-            self._actions = torch.from_numpy(actions,
-                dtype=torch.float32, device=self.device)
+            self._actions = torch.from_numpy(actions).to(self.device)
         return self._actions
 
     @property
@@ -53,8 +50,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._rewards_list[i])
                 rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
-            self._rewards = torch.from_numpy(rewards,
-                dtype=torch.float32, device=self.device)
+            self._rewards = torch.from_numpy(rewards).to(self.device)
         return self._rewards
 
     @property
@@ -67,8 +63,7 @@ class BatchEpisodes(object):
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + rewards[i] * mask[i]
                 returns[i] = return_
-            self._returns = torch.from_numpy(returns,
-                dtype=torch.float32, device=self.device)
+            self._returns = torch.from_numpy(returns).to(self.device)
         return self._returns
 
     @property
@@ -78,8 +73,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 mask[:length, i] = 1.0
-            self._mask = torch.from_numpy(mask,
-                dtype=torch.float32, device=self.device)
+            self._mask = torch.from_numpy(mask).to(self.device)
         return self._mask
 
     def gae(self, values, tau=1.0):

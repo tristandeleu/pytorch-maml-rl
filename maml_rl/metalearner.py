@@ -11,13 +11,13 @@ from maml_rl.utils.optimization import conjugate_gradient
 
 class MetaLearner(object):
     def __init__(self, sampler, policy, baseline,
-                 gamma=0.95, fast_lr=0.5, is_cuda=False):
+                 gamma=0.95, fast_lr=0.5, device='cpu'):
         self.sampler = sampler
         self.policy = policy
         self.baseline = baseline
         self.gamma = gamma
         self.fast_lr = fast_lr
-        self.is_cuda = is_cuda
+        self.device = device
 
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
@@ -47,12 +47,12 @@ class MetaLearner(object):
         for task in tasks:
             self.sampler.reset_task(task)
             train_episodes = self.sampler.sample(self.policy,
-                gamma=self.gamma, is_cuda=self.is_cuda)
+                gamma=self.gamma, device=self.device)
 
             params = self.adapt(train_episodes)
 
             valid_episodes = self.sampler.sample(self.policy, params=params,
-                gamma=self.gamma, is_cuda=self.is_cuda)
+                gamma=self.gamma, device=self.device)
             episodes.append((train_episodes, valid_episodes))
         return episodes
 
@@ -142,7 +142,7 @@ class MetaLearner(object):
         else:
             vector_to_parameters(old_params, self.policy.parameters())
 
-    def cuda(self, **kwargs):
-        self.policy.cuda(**kwargs)
-        self.baseline.cuda(**kwargs)
-        self.is_cuda = True
+    def to(self, device, **kwargs):
+        self.policy.to(device, **kwargs)
+        self.baseline.to(device, **kwargs)
+        self.device = device

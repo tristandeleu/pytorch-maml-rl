@@ -33,9 +33,8 @@ class LinearFeatureBaseline(nn.Module):
         returns = episodes.returns.view(-1, 1)
 
         reg_coeff = self._reg_coeff
-        eye = Variable(torch.eye(self.feature_size))
-        if self.linear.weight.is_cuda:
-            eye = Variable(torch.eye(self.feature_size).cuda())
+        eye = torch.eye(self.feature_size, dtype=torch.float32,
+            device=self.linear.weight.device)
         for _ in range(5):
             coeffs, _ = torch.gels(
                 torch.matmul(featmat.t(), returns),

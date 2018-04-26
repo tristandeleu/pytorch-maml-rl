@@ -1,14 +1,13 @@
 import torch
-from torch.autograd import Variable
 
 def conjugate_gradient(f_Ax, b, cg_iters=10, residual_tol=1e-10):
-    p = Variable(b.data)
-    r = Variable(b.data)
+    p = b.clone().detach()
+    r = b.clone().detach()
     x = torch.zeros_like(b).float()
     rdotr = torch.dot(r, r)
 
     for i in range(cg_iters):
-        z = Variable(f_Ax(p).data)
+        z = f_Ax(p).detach()
         v = rdotr / torch.dot(p, z)
         x += v * p
         r -= v * z
@@ -20,4 +19,4 @@ def conjugate_gradient(f_Ax, b, cg_iters=10, residual_tol=1e-10):
         if rdotr.item() < residual_tol:
             break
 
-    return Variable(x.data)
+    return x.detach()

@@ -1,6 +1,5 @@
 import gym
 import torch
-from torch.autograd import Variable
 import multiprocessing as mp
 
 from maml_rl.envs.subproc_vec_env import SubprocVecEnv
@@ -22,8 +21,8 @@ class BatchSampler(object):
             queue=self.queue)
         self._env = gym.make(env_name)
 
-    def sample(self, policy, params=None, gamma=0.95, is_cuda=False):
-        episodes = BatchEpisodes(batch_size=self.batch_size, gamma=gamma, is_cuda=is_cuda)
+    def sample(self, policy, params=None, gamma=0.95, device='cpu'):
+        episodes = BatchEpisodes(batch_size=self.batch_size, gamma=gamma, device=device)
         for i in range(self.batch_size):
             self.queue.put(i)
         for _ in range(self.num_workers):
@@ -31,17 +30,13 @@ class BatchSampler(object):
         observations, batch_ids = self.envs.reset()
         dones = [False]
         while (not all(dones)) or (not self.queue.empty()):
-            observations_tensor = torch.from_numpy(observations)
-            if is_cuda:
-                observations_tensor = observations_tensor.cuda()
+            observations_tensor = torch.from_numpy(observations).to(device=device)
             with torch.no_grad():
-                observations_var = Variable(observations_tensor)
-                actions_var = policy(observations_var, params=params).sample()
-                actions = actions_var.data.cpu().numpy()
+                actions_tensor = policy(observations_tensor, params=params).sample()
+                actions = actions_tensor.data.cpu().numpy()
             new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
             episodes.append(observations, actions, rewards, batch_ids)
-            observations = new_observations
-            batch_ids = new_batch_ids
+            observations, batch_ids = new_observations, new_batch_ids
         return episodes
 
     def reset_task(self, task):
