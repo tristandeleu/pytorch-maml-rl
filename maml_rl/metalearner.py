@@ -77,35 +77,35 @@ class MetaLearner(object):
 
         for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
             params = self.adapt(train_episodes)
-            pi = self.policy(valid_episodes.observations, params=params)
-            pis.append(detach_distribution(pi))
+            with torch.set_grad_enabled(old_pi is None):
+                pi = self.policy(valid_episodes.observations, params=params)
+                pis.append(detach_distribution(pi))
 
-            if old_pi is None:
-                old_pi = detach_distribution(pi)
+                if old_pi is None:
+                    old_pi = detach_distribution(pi)
 
-            values = self.baseline(valid_episodes)
-            advantages = valid_episodes.gae(values, tau=1.0)
-            ratio = torch.exp(pi.log_prob(valid_episodes.actions)
-                - old_pi.log_prob(valid_episodes.actions))
-            if ratio.dim() > 2:
-                ratio = torch.sum(ratio, dim=2)
+                values = self.baseline(valid_episodes)
+                advantages = valid_episodes.gae(values, tau=1.0)
+                ratio = torch.exp(pi.log_prob(valid_episodes.actions)
+                    - old_pi.log_prob(valid_episodes.actions))
+                if ratio.dim() > 2:
+                    ratio = torch.sum(ratio, dim=2)
 
-            loss = weighted_mean(ratio * advantages,
-                weights=valid_episodes.mask)
-            losses.append(loss)
+                loss = weighted_mean(ratio * advantages,
+                    weights=valid_episodes.mask)
+                losses.append(loss)
 
-            mask = valid_episodes.mask
-            if valid_episodes.actions.dim() > 2:
-                mask = mask.unsqueeze(2)
-            kl = weighted_mean(kl_divergence(pi, old_pi), weights=mask)
-            kls.append(kl)
+                mask = valid_episodes.mask
+                if valid_episodes.actions.dim() > 2:
+                    mask = mask.unsqueeze(2)
+                kl = weighted_mean(kl_divergence(pi, old_pi), weights=mask)
+                kls.append(kl)
 
         return (torch.mean(torch.stack(losses, dim=0)),
                 torch.mean(torch.stack(kls, dim=0)), pis)
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
              ls_max_steps=10):
-        self.policy.zero_grad()
         old_loss, _, old_pis = self.surrogate_loss(episodes)
         grads = torch.autograd.grad(old_loss, self.policy.parameters())
         grads = parameters_to_vector(grads)
@@ -122,10 +122,6 @@ class MetaLearner(object):
 
         step = stepdir / lagrange_multiplier
 
-        # Set volatile=True for the validation episodes
-        for _, valid_episodes in episodes:
-            valid_episodes.volatile()
-
         # Save the old parameters
         old_params = parameters_to_vector(self.policy.parameters())
 
@@ -136,7 +132,7 @@ class MetaLearner(object):
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
             improve = loss - old_loss
-            if (improve.data[0] >= 0.0) and (kl.data[0] < max_kl * 1.5):
+            if (improve.item() >= 0.0) and (kl.item() < max_kl * 1.5):
                 break
             step_size *= 0.5
         else:
