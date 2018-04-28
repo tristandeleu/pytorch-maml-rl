@@ -94,8 +94,10 @@ class MetaLearner(object):
                 weights=valid_episodes.mask)
             losses.append(loss)
 
-            kl = weighted_mean(kl_divergence(pi, old_pi),
-                weights=valid_episodes.mask.expand_as(valid_episodes.actions))
+            mask = valid_episodes.mask
+            if valid_episodes.actions.dim() > 2:
+                mask = mask.unsqueeze(2)
+            kl = weighted_mean(kl_divergence(pi, old_pi), weights=mask)
             kls.append(kl)
 
         return (torch.mean(torch.cat(losses, dim=0)),
