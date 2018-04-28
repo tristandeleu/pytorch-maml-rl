@@ -2,9 +2,9 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
+from torch.distributions.kl import kl_divergence
 from copy import deepcopy
-# TODO: Replace by torch.distributions in Pytorch 0.4
-from maml_rl.distributions.kl import kl_divergence
+
 from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
                                        weighted_normalize)
 from maml_rl.utils.optimization import conjugate_gradient
@@ -100,8 +100,8 @@ class MetaLearner(object):
             kl = weighted_mean(kl_divergence(pi, old_pi), weights=mask)
             kls.append(kl)
 
-        return (torch.mean(torch.cat(losses, dim=0)),
-                torch.mean(torch.cat(kls, dim=0)), pis)
+        return (torch.mean(torch.stack(losses, dim=0)),
+                torch.mean(torch.stack(kls, dim=0)), pis)
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
              ls_max_steps=10):
