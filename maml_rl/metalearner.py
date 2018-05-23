@@ -17,7 +17,7 @@ class MetaLearner(object):
         self.baseline = baseline
         self.gamma = gamma
         self.fast_lr = fast_lr
-        self.device = device
+        self.to(device)
 
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
@@ -56,9 +56,29 @@ class MetaLearner(object):
             episodes.append((train_episodes, valid_episodes))
         return episodes
 
+    def kl_divergence(self, episodes, old_pis=None):
+        kls = []
+        if old_pis is None:
+            old_pis = [None] * len(episodes)
+
+        for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
+            params = self.adapt(train_episodes)
+            pi = self.policy(valid_episodes.observations, params=params)
+
+            if old_pi is None:
+                old_pi = detach_distribution(pi)
+
+            mask = valid_episodes.mask
+            if valid_episodes.actions.dim() > 2:
+                mask = mask.unsqueeze(2)
+            kl = weighted_mean(kl_divergence(pi, old_pi), weights=mask)
+            kls.append(kl)
+
+        return torch.mean(torch.stack(kls, dim=0))
+
     def hessian_vector_product(self, episodes, damping=1e-2):
         def _product(vector):
-            _, kl, _ = self.surrogate_loss(episodes)
+            kl = self.kl_divergence(episodes)
             grads = torch.autograd.grad(kl, self.policy.parameters(),
                 create_graph=True)
             flat_grad_kl = parameters_to_vector(grads)
