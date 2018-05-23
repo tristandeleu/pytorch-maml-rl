@@ -39,8 +39,8 @@ def main(args):
     baseline = LinearFeatureBaseline(
         int(np.prod(sampler.envs.observation_space.shape)))
 
-    metalearner = MetaLearner(sampler, policy, baseline,
-        gamma=args.gamma, fast_lr=args.fast_lr, device=args.device)
+    metalearner = MetaLearner(sampler, policy, baseline, gamma=args.gamma,
+        fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
     for batch in range(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
@@ -72,6 +72,8 @@ if __name__ == '__main__':
         help='name of the environment')
     parser.add_argument('--gamma', type=float, default=0.95,
         help='value of the discount factor gamma')
+    parser.add_argument('--tau', type=float, default=1.0,
+        help='value of the discount factor for GAE')
 
     # Policy network (relu activation function)
     parser.add_argument('--hidden-size', type=int, default=100,

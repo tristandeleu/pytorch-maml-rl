@@ -10,18 +10,19 @@ from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
 from maml_rl.utils.optimization import conjugate_gradient
 
 class MetaLearner(object):
-    def __init__(self, sampler, policy, baseline,
-                 gamma=0.95, fast_lr=0.5, device='cpu'):
+    def __init__(self, sampler, policy, baseline, gamma=0.95,
+                 fast_lr=0.5, tau=1.0, device='cpu'):
         self.sampler = sampler
         self.policy = policy
         self.baseline = baseline
         self.gamma = gamma
         self.fast_lr = fast_lr
+        self.tau = tau
         self.to(device)
 
     def inner_loss(self, episodes, params=None):
         values = self.baseline(episodes)
-        advantages = episodes.gae(values, tau=1.0)
+        advantages = episodes.gae(values, tau=self.tau)
         advantages = weighted_normalize(advantages, weights=episodes.mask)
 
         pi = self.policy(episodes.observations, params=params)
