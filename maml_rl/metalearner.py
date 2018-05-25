@@ -110,7 +110,7 @@ class MetaLearner(object):
                 ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                     - old_pi.log_prob(valid_episodes.actions))
                 if ratio.dim() > 2:
-                    ratio = torch.sum(ratio, dim=2)
+                    ratio = torch.prod(ratio, dim=2)
 
                 loss = weighted_mean(ratio * advantages,
                     weights=valid_episodes.mask)
