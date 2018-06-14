@@ -26,7 +26,7 @@ class NormalMLPPolicy(Policy):
         for i in range(1, self.num_layers):
             self.add_module('layer{0}'.format(i),
                 nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
-        self.add_module('mu', nn.Linear(layer_sizes[-1], output_size))
+        self.mu = nn.Linear(layer_sizes[-1], output_size)
 
         self.sigma = nn.Parameter(torch.Tensor(output_size))
         self.sigma.data.fill_(math.log(init_std))
