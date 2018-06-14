@@ -36,8 +36,12 @@ register(
 )
 
 register(
-    'HalfCheetahVelEnv-v0',
-    entry_point='maml_rl.envs.mujoco.half_cheetah_vel:HalfCheetahVelEnv',
+    'HalfCheetahVelEnv-v1',
+    entry_point='maml_rl.envs.utils:mujoco_wrapper',
+    kwargs={
+        'entry_point': 'maml_rl.envs.mujoco.half_cheetah_vel:HalfCheetahVelEnv',
+        'kwargs': {}
+    },
     max_episode_steps=200
 )
 
