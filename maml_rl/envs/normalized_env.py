@@ -4,7 +4,7 @@ from gym import spaces
 
 class NormalizedActionWrapper(gym.ActionWrapper):
     def __init__(self, env):
-        super(NormalizedEnv, self).__init__(env)
+        super(NormalizedActionWrapper, self).__init__(env)
         self.action_space = spaces.Box(low=-1.0, high=1.0,
             shape=self.env.action_space.shape)
 
