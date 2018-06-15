@@ -46,7 +46,8 @@ def main(args):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
         episodes = metalearner.sample(tasks)
         metalearner.step(episodes, max_kl=args.max_kl, cg_iters=args.cg_iters,
-            cg_damping=args.cg_damping, ls_max_steps=args.ls_max_steps)
+            cg_damping=args.cg_damping, ls_max_steps=args.ls_max_steps,
+            ls_backtrack_ratio=args.ls_backtrack_ratio)
 
         # Tensorboard
         writer.add_scalar('total_rewards/before_update',
@@ -96,9 +97,11 @@ if __name__ == '__main__':
         help='maximum value for the KL constraint in TRPO')
     parser.add_argument('--cg-iters', type=int, default=10,
         help='number of iterations of conjugate gradient')
-    parser.add_argument('--cg-damping', type=float, default=1e-2,
+    parser.add_argument('--cg-damping', type=float, default=1e-5,
         help='damping in conjugate gradient')
-    parser.add_argument('--ls-max-steps', type=int, default=10,
+    parser.add_argument('--ls-max-steps', type=int, default=15,
+        help='maximum number of iterations for line search')
+    parser.add_argument('--ls-backtrack-ratio', type=float, default=0.8,
         help='maximum number of iterations for line search')
 
     # Miscellaneous
