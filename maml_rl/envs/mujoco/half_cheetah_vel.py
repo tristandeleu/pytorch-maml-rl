@@ -1,19 +1,16 @@
 import numpy as np
-from gym import utils
-from gym.envs.mujoco import mujoco_env
-from gym import spaces
+from gym.envs.mujoco import HalfCheetahEnv
 
-class HalfCheetahVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class HalfCheetahVelEnv(HalfCheetahEnv):
     def __init__(self, **task):
         self._task = task
         self._goal_vel = task.get('velocity', 0.0)
-        mujoco_env.MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
-        utils.EzPickle.__init__(self)
+        super(HalfCheetahVelEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.get_body_com("torso").flat[0]
+        xposbefore = self.sim.data.qpos[0]
         self.do_simulation(action, self.frame_skip)
-        xposafter = self.get_body_com("torso").flat[0]
+        xposafter = self.sim.data.qpos[0]
 
         forward_vel = (xposafter - xposbefore) / self.dt
         forward_reward = -1.0 * abs(forward_vel - self._goal_vel)
@@ -41,12 +38,6 @@ class HalfCheetahVelEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def reset_task(self, task):
         self._task = task
         self._goal_vel = task['velocity']
-
-    def reset_model(self):
-        qpos = self.init_qpos + self.np_random.uniform(low=-.1, high=.1, size=self.model.nq)
-        qvel = self.init_qvel + self.np_random.randn(self.model.nv) * .1
-        self.set_state(qpos, qvel)
-        return self._get_obs()
 
     def viewer_setup(self):
         self.viewer.cam.type = 1
