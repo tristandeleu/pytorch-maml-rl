@@ -23,3 +23,31 @@ class NormalizedActionWrapper(gym.ActionWrapper):
         # Clip the action in [-1, 1]
         action = np.clip(action, -1.0, 1.0)
         return action
+
+class NormalizedObservationWrapper(gym.ObservationWrapper):
+    def __init__(self, env, alpha=1e-3, epsilon=1e-8):
+        super(NormalizedObservationWrapper, self).__init__(env)
+        self.alpha = alpha
+        self.epsilon = epsilon
+        shape = self.observation_space.shape
+        dtype = self.observation_space.dtype or np.float32
+        self._mean = np.zeros(shape, dtype=dtype)
+        self._var = np.ones(shape, dtype=dtype)
+
+    def observation(self, observation):
+        self._mean = (1.0 - self.alpha) * self._mean + self.alpha * observation
+        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(observation, self._mean)
+        return (observation - self._mean) / (np.sqrt(self._var) + self.epsilon)
+
+class NormalizedRewardWrapper(gym.RewardWrapper):
+    def __init__(self, env, alpha=1e-3, epsilon=1e-8):
+        super(NormalizedRewardWrapper, self).__init__(env)
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self._mean = 0.0
+        self._var = 1.0
+
+    def reward(self, reward):
+        self._mean = (1.0 - self.alpha) * self._mean + self.alpha * reward
+        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(reward, self._mean)
+        return (reward - self._mean) / (np.sqrt(self._var) + self.epsilon)
