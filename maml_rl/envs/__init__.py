@@ -24,14 +24,16 @@ register(
 # ----------------------------------------
 
 register(
-    'AntVelEnv-v0',
-    entry_point='maml_rl.envs.mujoco.ant_vel:AntVelEnv',
+    'AntVelEnv-v1',
+    entry_point='maml_rl.envs.utils:mujoco_wrapper',
+    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntVelEnv'},
     max_episode_steps=200
 )
 
 register(
-    'AntDirEnv-v0',
-    entry_point='maml_rl.envs.mujoco.ant_dir:AntDirEnv',
+    'AntDirEnv-v1',
+    entry_point='maml_rl.envs.utils:mujoco_wrapper',
+    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntDirEnv'},
     max_episode_steps=200
 )
 
