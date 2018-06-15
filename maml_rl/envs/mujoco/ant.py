@@ -62,7 +62,7 @@ class AntVelEnv(AntEnv):
 class AntDirEnv(AntEnv):
     def __init__(self, **task):
         self._task = task
-        self._goal_vel = task.get('velocity', 0.0)
+        self._goal_dir = task.get('direction', 1)
         self._action_scaling = None
         super(AntDirEnv, self).__init__()
 
