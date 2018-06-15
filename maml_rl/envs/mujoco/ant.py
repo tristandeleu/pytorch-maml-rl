@@ -51,7 +51,7 @@ class AntVelEnv(AntEnv):
         ]).astype(np.float32).flatten()
 
     def sample_tasks(self, num_tasks):
-        velocities = np.random.uniform(0.0, 3.0, size=(num_tasks,))
+        velocities = self.np_random.uniform(0.0, 3.0, size=(num_tasks,))
         tasks = [{'velocity': velocity} for velocity in velocities]
         return tasks
 
@@ -109,7 +109,7 @@ class AntDirEnv(AntEnv):
         ]).astype(np.float32).flatten()
 
     def sample_tasks(self, num_tasks):
-        directions = 2 * np.random.binomial(1, p=0.5, size=(num_tasks,)) - 1
+        directions = 2 * self.np_random.binomial(1, p=0.5, size=(num_tasks,)) - 1
         tasks = [{'direction': direction} for direction in directions]
         return tasks
 
