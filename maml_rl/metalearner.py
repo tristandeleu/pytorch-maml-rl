@@ -106,7 +106,9 @@ class MetaLearner(object):
                     old_pi = detach_distribution(pi)
 
                 values = self.baseline(valid_episodes)
-                advantages = valid_episodes.gae(values, tau=1.0)
+                advantages = valid_episodes.gae(values, tau=self.tau)
+                advantages = weighted_normalize(advantages,
+                    weights=valid_episodes.mask)
                 ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                     - old_pi.log_prob(valid_episodes.actions))
                 if ratio.dim() > 2:
