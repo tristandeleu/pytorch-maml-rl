@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.distributions import Categorical, Normal
 
 def weighted_mean(tensor, dim=None, weights=None):
