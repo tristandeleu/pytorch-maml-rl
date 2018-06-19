@@ -6,6 +6,11 @@ from torch.distributions import Categorical
 from collections import OrderedDict
 from maml_rl.policies.policy import Policy
 
+def weight_init(module):
+    if isinstance(module, nn.Linear):
+        nn.init.xavier_uniform_(module.weight)
+        module.bias.data.zero_()
+
 class CategoricalMLPPolicy(Policy):
     def __init__(self, input_size, output_size,
                  hidden_sizes=(), nonlinearity=F.relu):
@@ -19,6 +24,7 @@ class CategoricalMLPPolicy(Policy):
         for i in range(1, self.num_layers + 1):
             self.add_module('layer{0}'.format(i),
                 nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
+        self.apply(weight_init)
 
     def forward(self, input, params=None):
         if params is None:
