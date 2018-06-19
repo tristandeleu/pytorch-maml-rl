@@ -45,7 +45,7 @@ class LinearFeatureBaseline(nn.Module):
                 '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
                 'matrix) is not full-rank, regardless of the regularization '
                 '(maximum regularization: {0}).'.format(reg_coeff))
-        self.linear.weight.copy_(coeffs.t())
+        self.linear.weight.data = coeffs.data.t()
 
     def forward(self, episodes):
         features = self._feature(episodes)
