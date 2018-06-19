@@ -106,13 +106,15 @@ class MetaLearner(object):
                     old_pi = detach_distribution(pi)
 
                 values = self.baseline(valid_episodes)
-                advantages = valid_episodes.gae(values, tau=1.0)
+                advantages = valid_episodes.gae(values, tau=self.tau)
+                advantages = weighted_normalize(advantages,
+                    weights=valid_episodes.mask)
                 ratio = torch.exp(pi.log_prob(valid_episodes.actions)
                     - old_pi.log_prob(valid_episodes.actions))
                 if ratio.dim() > 2:
                     ratio = torch.prod(ratio, dim=2)
 
-                loss = weighted_mean(ratio * advantages,
+                loss = -weighted_mean(ratio * advantages,
                     weights=valid_episodes.mask)
                 losses.append(loss)
 
@@ -126,7 +128,7 @@ class MetaLearner(object):
                 torch.mean(torch.stack(kls, dim=0)), pis)
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
-             ls_max_steps=10):
+             ls_max_steps=10, ls_backtrack_ratio=0.5):
         old_loss, _, old_pis = self.surrogate_loss(episodes)
         grads = torch.autograd.grad(old_loss, self.policy.parameters())
         grads = parameters_to_vector(grads)
@@ -149,13 +151,13 @@ class MetaLearner(object):
         # Line search
         step_size = 1.0
         for _ in range(ls_max_steps):
-            vector_to_parameters(old_params + step_size * step,
+            vector_to_parameters(old_params - step_size * step,
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
             improve = loss - old_loss
-            if (improve.item() >= 0.0) and (kl.item() < max_kl * 1.5):
+            if (improve.item() < 0.0) and (kl.item() < max_kl * 1.5):
                 break
-            step_size *= 0.5
+            step_size *= ls_backtrack_ratio
         else:
             vector_to_parameters(old_params, self.policy.parameters())
 
