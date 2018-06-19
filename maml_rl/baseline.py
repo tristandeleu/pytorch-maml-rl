@@ -1,9 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-
-def isnan(x):
-    return x != x
 
 class LinearFeatureBaseline(nn.Module):
     def __init__(self, input_size, reg_coeff=1e-5):
@@ -36,14 +32,20 @@ class LinearFeatureBaseline(nn.Module):
         eye = torch.eye(self.feature_size, dtype=torch.float32,
             device=self.linear.weight.device)
         for _ in range(5):
-            coeffs, _ = torch.gels(
-                torch.matmul(featmat.t(), returns),
-                torch.matmul(featmat.t(), featmat) + reg_coeff * eye
-            )
-            if not isnan(self.linear.weight).any():
+            try:
+                coeffs, _ = torch.gels(
+                    torch.matmul(featmat.t(), returns),
+                    torch.matmul(featmat.t(), featmat) + reg_coeff * eye
+                )
                 break
-            reg_coeff *= 10
-        self.linear.weight.data = coeffs.data.t()
+            except RuntimeError:
+                reg_coeff += 10
+        else:
+            raise RuntimeError('Unable to solve the normal equations in '
+                '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
+                'matrix) is not full-rank, regardless of the regularization '
+                '(maximum regularization: {0}).'.format(reg_coeff))
+        self.linear.weight.copy_(coeffs.t())
 
     def forward(self, episodes):
         features = self._feature(episodes)
