@@ -153,7 +153,7 @@ class MetaLearner(object):
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
             improve = loss - old_loss
-            if (improve.item() < 0.0) and (kl.item() < max_kl * 1.5):
+            if (improve.item() < 0.0) and (kl.item() < max_kl):
                 break
             step_size *= ls_backtrack_ratio
         else:
