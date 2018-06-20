@@ -58,8 +58,8 @@ class BatchEpisodes(object):
         if self._returns is None:
             return_ = np.zeros(self.batch_size, dtype=np.float32)
             returns = np.zeros((len(self), self.batch_size), dtype=np.float32)
-            rewards = self.rewards.data.cpu().numpy()
-            mask = self.mask.data.cpu().numpy()
+            rewards = self.rewards.cpu().numpy()
+            mask = self.mask.cpu().numpy()
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + rewards[i] * mask[i]
                 returns[i] = return_

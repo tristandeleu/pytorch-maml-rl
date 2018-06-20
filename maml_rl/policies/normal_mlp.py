@@ -6,11 +6,7 @@ from torch.distributions import Normal
 
 from collections import OrderedDict
 from maml_rl.policies.policy import Policy
-
-def weight_init(module):
-    if isinstance(module, nn.Linear):
-        nn.init.xavier_uniform_(module.weight)
-        module.bias.data.zero_()
+from maml_rl.utils.torch_utils import weight_init
 
 class NormalMLPPolicy(Policy):
     def __init__(self, input_size, output_size, hidden_sizes=(),

@@ -1,9 +1,7 @@
 import torch
-import torch.nn.functional as F
 from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
 from torch.distributions.kl import kl_divergence
-from copy import deepcopy
 
 from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
                                        weighted_normalize)
@@ -155,7 +153,7 @@ class MetaLearner(object):
                                  self.policy.parameters())
             loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
             improve = loss - old_loss
-            if (improve.item() < 0.0) and (kl.item() < max_kl * 1.5):
+            if (improve.item() < 0.0) and (kl.item() < max_kl):
                 break
             step_size *= ls_backtrack_ratio
         else:
