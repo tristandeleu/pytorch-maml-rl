@@ -4,8 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from collections import OrderedDict
-from maml_rl.policies.policy import Policy
-from maml_rl.utils.torch_utils import weight_init
+from maml_rl.policies.policy import Policy, weight_init
 
 class CategoricalMLPPolicy(Policy):
     def __init__(self, input_size, output_size,

@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from torch.distributions import Categorical, Normal
 
 def weighted_mean(tensor, dim=None, weights=None):
@@ -34,8 +33,3 @@ def weighted_normalize(tensor, dim=None, weights=None, epsilon=1e-8):
     centered = tensor * weights - mean
     std = torch.sqrt(weighted_mean(centered ** 2, dim=dim, weights=weights))
     return centered / (std + epsilon)
-
-def weight_init(module):
-    if isinstance(module, nn.Linear):
-        nn.init.xavier_uniform_(module.weight)
-        module.bias.data.zero_()
