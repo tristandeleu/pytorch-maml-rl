@@ -107,10 +107,12 @@ class MetaLearner(object):
                 advantages = valid_episodes.gae(values, tau=self.tau)
                 advantages = weighted_normalize(advantages,
                     weights=valid_episodes.mask)
-                ratio = torch.exp(pi.log_prob(valid_episodes.actions)
+
+                log_ratio = (pi.log_prob(valid_episodes.actions)
                     - old_pi.log_prob(valid_episodes.actions))
-                if ratio.dim() > 2:
-                    ratio = torch.prod(ratio, dim=2)
+                if log_ratio.dim() > 2:
+                    log_ratio = torch.sum(log_ratio, dim=2)
+                ratio = torch.exp(log_ratio)
 
                 loss = -weighted_mean(ratio * advantages,
                     weights=valid_episodes.mask)
