@@ -24,28 +24,28 @@ register(
 # ----------------------------------------
 
 register(
-    'AntVelEnv-v1',
+    'AntVel-v1',
     entry_point='maml_rl.envs.utils:mujoco_wrapper',
     kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntVelEnv'},
     max_episode_steps=200
 )
 
 register(
-    'AntDirEnv-v1',
+    'AntDir-v1',
     entry_point='maml_rl.envs.utils:mujoco_wrapper',
     kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntDirEnv'},
     max_episode_steps=200
 )
 
 register(
-    'HalfCheetahVelEnv-v1',
+    'HalfCheetahVel-v1',
     entry_point='maml_rl.envs.utils:mujoco_wrapper',
     kwargs={'entry_point': 'maml_rl.envs.mujoco.half_cheetah:HalfCheetahVelEnv'},
     max_episode_steps=200
 )
 
 register(
-    'HalfCheetahDirEnv-v1',
+    'HalfCheetahDir-v1',
     entry_point='maml_rl.envs.utils:mujoco_wrapper',
     kwargs={'entry_point': 'maml_rl.envs.mujoco.half_cheetah:HalfCheetahDirEnv'},
     max_episode_steps=200
