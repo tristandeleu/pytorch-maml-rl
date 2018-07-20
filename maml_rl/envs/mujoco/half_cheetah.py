@@ -40,9 +40,10 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         self._goal_vel = task['velocity']
 
     def viewer_setup(self):
-        self.viewer.cam.type = 1
-        self.viewer.cam.trackbodyid = 1
-        self.viewer.cam.distance = self.model.stat.extent * 0.5
+        camera_id = self.model.camera_name2id('track')
+        self.viewer.cam.type = 2
+        self.viewer.cam.fixedcamid = camera_id
+        self.viewer.cam.distance = self.model.stat.extent * 0.35
         # Hide the overlay
         self.viewer._hide_overlay = True
 
@@ -52,7 +53,6 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
             # window size used for old mujoco-py:
             width, height = 500, 500
             data = self._get_viewer().read_pixels(width, height, depth=False)
-            # original image is upside-down, so flip it
             return data
         elif mode == 'human':
             self._get_viewer().render()
@@ -96,9 +96,10 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         self._goal_dir = task['direction']
 
     def viewer_setup(self):
-        self.viewer.cam.type = 1
-        self.viewer.cam.trackbodyid = 1
-        self.viewer.cam.distance = self.model.stat.extent * 0.5
+        camera_id = self.model.camera_name2id('track')
+        self.viewer.cam.type = 2
+        self.viewer.cam.fixedcamid = camera_id
+        self.viewer.cam.distance = self.model.stat.extent * 0.35
         # Hide the overlay
         self.viewer._hide_overlay = True
 
@@ -108,7 +109,6 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
             # window size used for old mujoco-py:
             width, height = 500, 500
             data = self._get_viewer().read_pixels(width, height, depth=False)
-            # original image is upside-down, so flip it
             return data
         elif mode == 'human':
             self._get_viewer().render()
