@@ -8,6 +8,24 @@ from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
 from maml_rl.utils.optimization import conjugate_gradient
 
 class MetaLearner(object):
+    """Meta-learner
+
+    The meta-learner is responsible for sampling the trajectories/episodes 
+    (before and after the one-step adaptation), compute the inner loss, compute 
+    the updated parameters based on the inner-loss, and perform the meta-update.
+
+    [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
+        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
+        (https://arxiv.org/abs/1703.03400)
+    [2] Richard Sutton, Andrew Barto, "Reinforcement learning: An introduction",
+        2018 (http://incompleteideas.net/book/the-book-2nd.html)
+    [3] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, 
+        Pieter Abbeel, "High-Dimensional Continuous Control Using Generalized 
+        Advantage Estimation", 2016 (https://arxiv.org/abs/1506.02438)
+    [4] John Schulman, Sergey Levine, Philipp Moritz, Michael I. Jordan, 
+        Pieter Abbeel, "Trust Region Policy Optimization", 2015
+        (https://arxiv.org/abs/1502.05477)
+    """
     def __init__(self, sampler, policy, baseline, gamma=0.95,
                  fast_lr=0.5, tau=1.0, device='cpu'):
         self.sampler = sampler
@@ -19,6 +37,10 @@ class MetaLearner(object):
         self.to(device)
 
     def inner_loss(self, episodes, params=None):
+        """Compute the inner loss for the one-step gradient update. The inner 
+        loss is REINFORCE with baseline [2], computed on advantages estimated 
+        with Generalized Advantage Estimation (GAE, [3]).
+        """
         values = self.baseline(episodes)
         advantages = episodes.gae(values, tau=self.tau)
         advantages = weighted_normalize(advantages, weights=episodes.mask)
@@ -32,6 +54,9 @@ class MetaLearner(object):
         return loss
 
     def adapt(self, episodes):
+        """Adapt the parameters of the policy network to a new task, from 
+        sampled trajectories `episodes`, with a one-step gradient update [1].
+        """
         # Fit the baseline to the training episodes
         self.baseline.fit(episodes)
         # Get the loss on the training episodes
@@ -42,6 +67,9 @@ class MetaLearner(object):
         return params
 
     def sample(self, tasks):
+        """Sample trajectories (before and after the update of the parameters) 
+        for all the tasks `tasks`.
+        """
         episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
@@ -76,6 +104,7 @@ class MetaLearner(object):
         return torch.mean(torch.stack(kls, dim=0))
 
     def hessian_vector_product(self, episodes, damping=1e-2):
+        """Hessian-vector product, based on the Perlmutter method."""
         def _product(vector):
             kl = self.kl_divergence(episodes)
             grads = torch.autograd.grad(kl, self.policy.parameters(),
@@ -129,6 +158,9 @@ class MetaLearner(object):
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
              ls_max_steps=10, ls_backtrack_ratio=0.5):
+        """Meta-optimization step (ie. update of the initial parameters), based 
+        on Trust Region Policy Optimization (TRPO, [4]).
+        """
         old_loss, _, old_pis = self.surrogate_loss(episodes)
         grads = torch.autograd.grad(old_loss, self.policy.parameters())
         grads = parameters_to_vector(grads)

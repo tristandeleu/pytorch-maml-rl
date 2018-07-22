@@ -7,6 +7,11 @@ from collections import OrderedDict
 from maml_rl.policies.policy import Policy, weight_init
 
 class CategoricalMLPPolicy(Policy):
+    """Policy network based on a multi-layer perceptron (MLP), with a 
+    `Categorical` distribution output. This policy network can be used on tasks 
+    with discrete action spaces (eg. `TabularMDPEnv`). The code is adapted from 
+    https://github.com/cbfinn/maml_rl/blob/9c8e2ebd741cb0c7b8bf2d040c4caeeb8e06cc95/sandbox/rocky/tf/policies/maml_minimal_categorical_mlp_policy.py
+    """
     def __init__(self, input_size, output_size,
                  hidden_sizes=(), nonlinearity=F.relu):
         super(CategoricalMLPPolicy, self).__init__(
