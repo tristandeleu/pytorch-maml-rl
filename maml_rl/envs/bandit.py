@@ -14,8 +14,8 @@ class BernoulliBanditEnv(gym.Env):
     the parameters `p_i` from the uniform distribution on [0, 1].
 
     [1] Yan Duan, John Schulman, Xi Chen, Peter L. Bartlett, Ilya Sutskever,
-    Pieter Abbeel, "RL2: Fast Reinforcement Learning via Slow Reinforcement
-    Learning", 2016 (https://arxiv.org/abs/1611.02779)
+        Pieter Abbeel, "RL2: Fast Reinforcement Learning via Slow Reinforcement
+        Learning", 2016 (https://arxiv.org/abs/1611.02779)
     """
     def __init__(self, k, task={}):
         super(BernoulliBanditEnv, self).__init__()

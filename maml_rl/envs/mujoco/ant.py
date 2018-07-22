@@ -50,11 +50,11 @@ class AntVelEnv(AntEnv):
     velocities from the uniform distribution on [0, 3].
 
     [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
-    Meta-Learning for Fast Adaptation of Deep Networks", 2017 
-    (https://arxiv.org/abs/1703.03400)
+        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
+        (https://arxiv.org/abs/1703.03400)
     [2] Emanuel Todorov, Tom Erez, Yuval Tassa, "MuJoCo: A physics engine for 
-    model-based control", 2012 
-    (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
+        model-based control", 2012 
+        (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
     def __init__(self, task={}):
         self._task = task
@@ -107,11 +107,11 @@ class AntDirEnv(AntEnv):
     distribution on {-1, 1} with parameter 0.5 (-1: backward, +1: forward).
 
     [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
-    Meta-Learning for Fast Adaptation of Deep Networks", 2017 
-    (https://arxiv.org/abs/1703.03400)
+        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
+        (https://arxiv.org/abs/1703.03400)
     [2] Emanuel Todorov, Tom Erez, Yuval Tassa, "MuJoCo: A physics engine for 
-    model-based control", 2012 
-    (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
+        model-based control", 2012 
+        (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
     def __init__(self, task={}):
         self._task = task
@@ -163,8 +163,8 @@ class AntPosEnv(AntEnv):
     distribution on [-3, 3]^2.
 
     [1] Emanuel Todorov, Tom Erez, Yuval Tassa, "MuJoCo: A physics engine for 
-    model-based control", 2012 
-    (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
+        model-based control", 2012 
+        (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
     def __init__(self, task={}):
         self._task = task

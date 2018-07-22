@@ -15,8 +15,8 @@ class Navigation2DEnv(gym.Env):
     on [-0.5, 0.5]^2.
 
     [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
-    Meta-Learning for Fast Adaptation of Deep Networks", 2017 
-    (https://arxiv.org/abs/1703.03400)
+        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
+        (https://arxiv.org/abs/1703.03400)
     """
     def __init__(self, task={}):
         super(Navigation2DEnv, self).__init__()

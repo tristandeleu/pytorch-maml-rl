@@ -16,8 +16,8 @@ class TabularMDPEnv(gym.Env):
     Dirichlet distribution (ie. with parameter 1).
 
     [1] Yan Duan, John Schulman, Xi Chen, Peter L. Bartlett, Ilya Sutskever,
-    Pieter Abbeel, "RL2: Fast Reinforcement Learning via Slow Reinforcement
-    Learning", 2016 (https://arxiv.org/abs/1611.02779)
+        Pieter Abbeel, "RL2: Fast Reinforcement Learning via Slow Reinforcement
+        Learning", 2016 (https://arxiv.org/abs/1611.02779)
     """
     def __init__(self, num_states, num_actions, task={}):
         super(TabularMDPEnv, self).__init__()

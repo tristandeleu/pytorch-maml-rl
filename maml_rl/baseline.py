@@ -6,8 +6,8 @@ class LinearFeatureBaseline(nn.Module):
     (Supplementary Material 2).
 
     [1] Yan Duan, Xi Chen, Rein Houthooft, John Schulman, Pieter Abbeel, 
-    "Benchmarking Deep Reinforcement Learning for Continuous Control", 2016 
-    (https://arxiv.org/abs/1604.06778)
+        "Benchmarking Deep Reinforcement Learning for Continuous Control", 2016 
+        (https://arxiv.org/abs/1604.06778)
     """
     def __init__(self, input_size, reg_coeff=1e-5):
         super(LinearFeatureBaseline, self).__init__()
