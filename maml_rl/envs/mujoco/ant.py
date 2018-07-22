@@ -1,5 +1,42 @@
 import numpy as np
-from gym.envs.mujoco import AntEnv
+from gym.envs.mujoco import AntEnv as AntEnv_
+
+class AntEnv(AntEnv_):
+    @property
+    def action_scaling(self):
+        if not hasattr(self, 'action_space'):
+            return 1.0
+        if self._action_scaling is None:
+            lb, ub = self.action_space.low, self.action_space.high
+            self._action_scaling = 0.5 * (ub - lb)
+        return self._action_scaling
+
+    def _get_obs(self):
+        return np.concatenate([
+            self.sim.data.qpos.flat[2:],
+            self.sim.data.qvel.flat,
+            np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
+            self.sim.data.get_body_xmat("torso").flat,
+            self.get_body_com("torso").flat,
+        ]).astype(np.float32).flatten()
+
+    def viewer_setup(self):
+        camera_id = self.model.camera_name2id('track')
+        self.viewer.cam.type = 2
+        self.viewer.cam.fixedcamid = camera_id
+        self.viewer.cam.distance = self.model.stat.extent * 0.35
+        # Hide the overlay
+        self.viewer._hide_overlay = True
+
+    def render(self, mode='human'):
+        if mode == 'rgb_array':
+            self._get_viewer().render()
+            # window size used for old mujoco-py:
+            width, height = 500, 500
+            data = self._get_viewer().read_pixels(width, height, depth=False)
+            return data
+        elif mode == 'human':
+            self._get_viewer().render()
 
 class AntVelEnv(AntEnv):
     """Ant environment with target velocity, as described in [1]. The 
@@ -25,15 +62,6 @@ class AntVelEnv(AntEnv):
         self._action_scaling = None
         super(AntVelEnv, self).__init__()
 
-    @property
-    def action_scaling(self):
-        if not hasattr(self, 'action_space'):
-            return 1.0
-        if self._action_scaling is None:
-            lb, ub = self.action_space.low, self.action_space.high
-            self._action_scaling = 0.5 * (ub - lb)
-        return self._action_scaling
-
     def step(self, action):
         xposbefore = self.get_body_com("torso")[0]
         self.do_simulation(action, self.frame_skip)
@@ -57,15 +85,6 @@ class AntVelEnv(AntEnv):
             reward_contact=-contact_cost, reward_survive=survive_reward,
             task=self._task)
         return (observation, reward, done, infos)
-
-    def _get_obs(self):
-        return np.concatenate([
-            self.sim.data.qpos.flat[2:],
-            self.sim.data.qvel.flat,
-            np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
-            self.sim.data.get_body_xmat("torso").flat,
-            self.get_body_com("torso").flat,
-        ]).astype(np.float32).flatten()
 
     def sample_tasks(self, num_tasks):
         velocities = self.np_random.uniform(0.0, 3.0, size=(num_tasks,))
@@ -100,15 +119,6 @@ class AntDirEnv(AntEnv):
         self._action_scaling = None
         super(AntDirEnv, self).__init__()
 
-    @property
-    def action_scaling(self):
-        if not hasattr(self, 'action_space'):
-            return 1.0
-        if self._action_scaling is None:
-            lb, ub = self.action_space.low, self.action_space.high
-            self._action_scaling = 0.5 * (ub - lb)
-        return self._action_scaling
-
     def step(self, action):
         xposbefore = self.get_body_com("torso")[0]
         self.do_simulation(action, self.frame_skip)
@@ -132,15 +142,6 @@ class AntDirEnv(AntEnv):
             reward_contact=-contact_cost, reward_survive=survive_reward,
             task=self._task)
         return (observation, reward, done, infos)
-
-    def _get_obs(self):
-        return np.concatenate([
-            self.sim.data.qpos.flat[2:],
-            self.sim.data.qvel.flat,
-            np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
-            self.sim.data.get_body_xmat("torso").flat,
-            self.get_body_com("torso").flat,
-        ]).astype(np.float32).flatten()
 
     def sample_tasks(self, num_tasks):
         directions = 2 * self.np_random.binomial(1, p=0.5, size=(num_tasks,)) - 1
@@ -171,20 +172,11 @@ class AntPosEnv(AntEnv):
         self._action_scaling = None
         super(AntPosEnv, self).__init__()
 
-    @property
-    def action_scaling(self):
-        if not hasattr(self, 'action_space'):
-            return 1.0
-        if self._action_scaling is None:
-            lb, ub = self.action_space.low, self.action_space.high
-            self._action_scaling = 0.5 * (ub - lb)
-        return self._action_scaling
-
     def step(self, action):
         self.do_simulation(action, self.frame_skip)
-        posafter = self.get_body_com("torso")
+        xyposafter = self.get_body_com("torso")[:2]
 
-        goal_reward = -np.sum(np.abs(posafter[:2] - self._goal_pos)) + 4.0
+        goal_reward = -np.sum(np.abs(xyposafter - self._goal_pos)) + 4.0
         survive_reward = 0.05
 
         ctrl_cost = 0.5 * 1e-2 * np.sum(np.square(action / self.action_scaling))
@@ -201,15 +193,6 @@ class AntPosEnv(AntEnv):
             reward_contact=-contact_cost, reward_survive=survive_reward,
             task=self._task)
         return (observation, reward, done, infos)
-
-    def _get_obs(self):
-        return np.concatenate([
-            self.sim.data.qpos.flat[2:],
-            self.sim.data.qvel.flat,
-            np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
-            self.sim.data.get_body_xmat("torso").flat,
-            self.get_body_com("torso").flat,
-        ]).astype(np.float32).flatten()
 
     def sample_tasks(self, num_tasks):
         positions = self.np_random.uniform(-3.0, 3.0, size=(num_tasks, 2))
