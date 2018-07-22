@@ -45,7 +45,7 @@ def main(args):
 
     for batch in range(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
-        episodes = metalearner.sample(tasks)
+        episodes = metalearner.sample(tasks, first_order=args.first_order)
         metalearner.step(episodes, max_kl=args.max_kl, cg_iters=args.cg_iters,
             cg_damping=args.cg_damping, ls_max_steps=args.ls_max_steps,
             ls_backtrack_ratio=args.ls_backtrack_ratio)
@@ -76,6 +76,8 @@ if __name__ == '__main__':
         help='value of the discount factor gamma')
     parser.add_argument('--tau', type=float, default=1.0,
         help='value of the discount factor for GAE')
+    parser.add_argument('--first-order', action='store_true',
+        help='use the first-order approximation of MAML')
 
     # Policy network (relu activation function)
     parser.add_argument('--hidden-size', type=int, default=100,

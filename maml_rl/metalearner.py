@@ -53,7 +53,7 @@ class MetaLearner(object):
 
         return loss
 
-    def adapt(self, episodes):
+    def adapt(self, episodes, first_order=False):
         """Adapt the parameters of the policy network to a new task, from 
         sampled trajectories `episodes`, with a one-step gradient update [1].
         """
@@ -62,11 +62,12 @@ class MetaLearner(object):
         # Get the loss on the training episodes
         loss = self.inner_loss(episodes)
         # Get the new parameters after a one-step gradient update
-        params = self.policy.update_params(loss, step_size=self.fast_lr)
+        params = self.policy.update_params(loss, step_size=self.fast_lr,
+            first_order=first_order)
 
         return params
 
-    def sample(self, tasks):
+    def sample(self, tasks, first_order=False):
         """Sample trajectories (before and after the update of the parameters) 
         for all the tasks `tasks`.
         """
@@ -76,7 +77,7 @@ class MetaLearner(object):
             train_episodes = self.sampler.sample(self.policy,
                 gamma=self.gamma, device=self.device)
 
-            params = self.adapt(train_episodes)
+            params = self.adapt(train_episodes, first_order=first_order)
 
             valid_episodes = self.sampler.sample(self.policy, params=params,
                 gamma=self.gamma, device=self.device)
