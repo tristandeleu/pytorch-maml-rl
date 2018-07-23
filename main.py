@@ -72,7 +72,8 @@ if __name__ == '__main__':
     import os
     import multiprocessing as mp
 
-    parser = argparse.ArgumentParser(description='MAML')
+    parser = argparse.ArgumentParser(description='Reinforcement learning with '
+        'Model-Agnostic Meta-Learning (MAML)')
 
     # General
     parser.add_argument('--env-name', type=str,
