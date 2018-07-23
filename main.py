@@ -2,6 +2,7 @@ import maml_rl.envs
 import gym
 import numpy as np
 import torch
+import json
 
 from maml_rl.metalearner import MetaLearner
 from maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
@@ -24,6 +25,10 @@ def main(args):
     save_folder = './saves/{0}'.format(args.output_folder)
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
+    with open(os.path.join(save_folder, 'config.json'), 'w') as f:
+        config = {k: v for (k, v) in vars(args).iteritems() if k != 'device'}
+        config.update(device=args.device.type)
+        json.dump(config, f, indent=2)
 
     sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
         num_workers=args.num_workers)
