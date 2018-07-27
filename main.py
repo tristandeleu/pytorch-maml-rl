@@ -26,7 +26,7 @@ def main(args):
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
     with open(os.path.join(save_folder, 'config.json'), 'w') as f:
-        config = {k: v for (k, v) in vars(args).iteritems() if k != 'device'}
+        config = {k: v for (k, v) in vars(args).items() if k != 'device'}
         config.update(device=args.device.type)
         json.dump(config, f, indent=2)
 
