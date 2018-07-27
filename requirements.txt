@@ -1,4 +1,4 @@
 numpy>=1.14.0
 torch>=0.4.0
-gym>=0.10.5
+gym[mujoco]>=0.10.5
 tensorboardX>=1.2
