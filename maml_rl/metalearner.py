@@ -106,14 +106,14 @@ class MetaLearner(object):
 
     def hessian_vector_product(self, episodes, damping=1e-2):
         """Hessian-vector product, based on the Perlmutter method."""
+        kl = self.kl_divergence(episodes)
+        grads = torch.autograd.grad(kl, self.policy.parameters(),
+            create_graph=True)
+        flat_grad_kl = parameters_to_vector(grads)
         def _product(vector):
-            kl = self.kl_divergence(episodes)
-            grads = torch.autograd.grad(kl, self.policy.parameters(),
-                create_graph=True)
-            flat_grad_kl = parameters_to_vector(grads)
-
             grad_kl_v = torch.dot(flat_grad_kl, vector)
-            grad2s = torch.autograd.grad(grad_kl_v, self.policy.parameters())
+            grad2s = torch.autograd.grad(grad_kl_v, self.policy.parameters(),
+                                         retain_graph=True)
             flat_grad2_kl = parameters_to_vector(grad2s)
 
             return flat_grad2_kl + damping * vector
