@@ -53,7 +53,7 @@ class NormalizedObservationWrapper(gym.ObservationWrapper):
 
     def observation(self, observation):
         self._mean = (1.0 - self.alpha) * self._mean + self.alpha * observation
-        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(observation, self._mean)
+        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(observation - self._mean)
         return (observation - self._mean) / (np.sqrt(self._var) + self.epsilon)
 
 class NormalizedRewardWrapper(gym.RewardWrapper):
@@ -75,5 +75,5 @@ class NormalizedRewardWrapper(gym.RewardWrapper):
 
     def reward(self, reward):
         self._mean = (1.0 - self.alpha) * self._mean + self.alpha * reward
-        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(reward, self._mean)
+        self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(reward - self._mean)
         return (reward - self._mean) / (np.sqrt(self._var) + self.epsilon)
