@@ -4,7 +4,7 @@ from gym.envs.mujoco import AntEnv as AntEnv_
 class AntEnv(AntEnv_):
     @property
     def action_scaling(self):
-        if not hasattr(self, 'action_space'):
+        if (not hasattr(self, 'action_space')) or (self.action_space is None):
             return 1.0
         if self._action_scaling is None:
             lb, ub = self.action_space.low, self.action_space.high
