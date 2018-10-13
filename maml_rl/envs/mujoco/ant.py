@@ -13,7 +13,7 @@ class AntEnv(AntEnv_):
 
     def _get_obs(self):
         return np.concatenate([
-            self.sim.data.qpos.flat[2:],
+            self.sim.data.qpos.flat,
             self.sim.data.qvel.flat,
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
             self.sim.data.get_body_xmat("torso").flat,
