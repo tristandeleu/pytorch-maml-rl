@@ -35,6 +35,7 @@ class BatchSampler(object):
                 actions_tensor = policy(observations_tensor, params=params).sample()
                 actions = actions_tensor.cpu().numpy()
             new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
+
             episodes.append(observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids
         return episodes
