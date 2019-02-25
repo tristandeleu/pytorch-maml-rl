@@ -20,7 +20,6 @@ class Navigation2DEnv(gym.Env):
     """
     def __init__(self, task={}):
         super(Navigation2DEnv, self).__init__()
-
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
             shape=(2,), dtype=np.float32)
         self.action_space = spaces.Box(low=-0.1, high=0.1,
@@ -50,6 +49,7 @@ class Navigation2DEnv(gym.Env):
 
     def step(self, action):
         action = np.clip(action, -0.1, 0.1)
+        
         assert self.action_space.contains(action)
         self._state = self._state + action
 
