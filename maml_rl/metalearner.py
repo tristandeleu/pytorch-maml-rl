@@ -75,9 +75,13 @@ class MetaLearner(object):
         episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
+
+
             train_episodes = self.sampler.sample(self.policy,
                 gamma=self.gamma, device=self.device)
 
+            # print(train_episodes.observations.shape)
+            # print("REACHED self.sampler.reset_task(task)")
             params = self.adapt(train_episodes, first_order=first_order)
 
             valid_episodes = self.sampler.sample(self.policy, params=params,
