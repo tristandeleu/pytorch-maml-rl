@@ -93,9 +93,9 @@ def main(args):
             
         else:
             # supposed to be overwritten for each batch
-            with open(os.path.join(log_traj_folder, 'latest_train_episodes_observ_.pkl'), 'wb') as f: 
+            with open(os.path.join(log_traj_folder, 'latest_train_episodes_observ.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.numpy() for ep, _ in episodes], f)
-            with open(os.path.join(log_traj_folder, 'latest_valid_episodes_observ_'), 'wb') as f: 
+            with open(os.path.join(log_traj_folder, 'latest_valid_episodes_observ.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.numpy() for _, ep in episodes], f)
             with open(os.path.join(log_traj_folder, 'latest_tasks.pkl'), 'wb') as f: 
                 pickle.dump(tasks, f)
