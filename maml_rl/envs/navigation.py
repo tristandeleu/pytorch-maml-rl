@@ -18,17 +18,20 @@ class Navigation2DEnv(gym.Env):
         Meta-Learning for Fast Adaptation of Deep Networks", 2017 
         (https://arxiv.org/abs/1703.03400)
     """
+    """
+    What's new for the new environment:
+    Added 8 pedestrians initialized to be at 4 corners ([-0.8,-0.8], [0.8,-0.8], [0.8,0.8], [-0.8,0.8]) 
+    of a rectangle centering at the origin. 2 pedestrians at each corner. They walk almostly 
+    diagonally towards the other side (specific direction is upon randomness). After they exit the rectangle, 
+    they will be initialized at the corners again. 
+    """
+    
     def __init__(self, task={}):
         super(Navigation2DEnv, self).__init__()
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
             shape=(2,), dtype=np.float32)
         self.action_space = spaces.Box(low=-0.1, high=0.1,
             shape=(2,), dtype=np.float32)
-
-        # self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
-        #     shape=(2,))
-        # self.action_space = spaces.Box(low=-0.1, high=0.1,
-        #     shape=(2,))
 
         self._task = task
         self._goal = task.get('goal', np.zeros(2, dtype=np.float32))
@@ -39,29 +42,21 @@ class Navigation2DEnv(gym.Env):
 
         self._ped_speed = task.get('ped_speed', np.float32(0))
         self._ped_direc = task.get('ped_direc', np.zeros(8, dtype=np.float32))
-
+        # ----------- NEW ENV --------------------
         # self._n_pedestrian = 8 # or use np.random.randint but needs to adjust _ped_state
         self._entering_corner = np.float32(0.8)
         self._default_ped_state = self._entering_corner * np.repeat(np.array([[-1,-1], [1,-1], [1,1], [-1,1]]), 2, axis=0)
         self._ped_state = self._default_ped_state.copy()
-        # self._ped_direc = np.zeros(8, dtype=np.float32) # 8 pedestrians
-
-        # for i in range(4):
-        #     temp_rand = self.np_random.uniform(i*np.pi/2, (i+1)*np.pi/2, size=2)
-        #     # self._ped_direc[2*i, 2*i+1] = temp_rand
-        #     self._ped_direc[[2*i, 2*i+1]] = temp_rand
-
-
-
-
+        # ----------- Finish NEW ENV --------------------
         
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def sample_tasks(self, num_tasks):
         goals = self.np_random.uniform(-0.5, 0.5, size=(num_tasks, 2))
+        
+        # ----------- NEW ENV --------------------
         ped_speeds = self.np_random.uniform(0.0, 0.4, size=num_tasks)
         ped_direcs = np.zeros((num_tasks, 8), dtype=np.float32) # 8 pedestrians
 
@@ -70,6 +65,7 @@ class Navigation2DEnv(gym.Env):
             temp_rand = self.np_random.uniform((i+1)*np.pi/2, (i+2)*np.pi/2, size=(num_tasks, 2))
         # nPedestrian = np.random.randint(3, 7, size=num_tasks)
         tasks = [{'goal': goal, 'ped_speed': ped_speed, 'ped_direc': ped_direc} for goal, ped_speed, ped_direc in zip(goals, ped_speeds, ped_direcs)]
+        # ----------- Finish NEW ENV --------------------
         return tasks
 
     def reset_task(self, task):
@@ -85,7 +81,7 @@ class Navigation2DEnv(gym.Env):
     def step(self, action):
         action = np.clip(action, -0.1, 0.1)
 
-        try:
+        try: # for debugging. Not sure why it gives assertion error sometimes in the middle of training...
             assert self.action_space.contains(action)
         except AssertionError as error:
             print("AssertionError: action is {}".format(action))
@@ -94,12 +90,11 @@ class Navigation2DEnv(gym.Env):
         self._state = self._state + action
         x = self._state[0] - self._goal[0]
         y = self._state[1] - self._goal[1]
-
+        # ----------- NEW ENV --------------------
         reward = np.float32(0)
         for i in range(self._ped_direc.shape[0]):
             if any(abs(self._ped_state[i,:]) > self._entering_corner + 0.0001):
                 self._ped_state[[i, i], [0, 1]] = self._default_ped_state[i,:]
-
                 # self._ped_direc[i] = self.np_random.uniform(int(i/2)*np.pi/2, (int(i/2)+1)*np.pi/2, size=1)
             else:
                 self._ped_state[[i, i], [0, 1]] = self._ped_state[i,:] + self._ped_speed* np.array([np.cos(self._ped_direc[i]), np.sin(self._ped_direc[i])])
@@ -107,8 +102,8 @@ class Navigation2DEnv(gym.Env):
             if (dist_ped_i < 0.1): # assume safe distance is within a radius of 0.1
                 reward = reward - 0.1 + dist_ped_i*1.0
 
-
         reward = reward - np.sqrt(x ** 2 + y ** 2)
+        # ----------- Finish NEW ENV --------------------
         done = ((np.abs(x) < 0.01) and (np.abs(y) < 0.01))
 
         return self._state, reward, done, self._task
