@@ -57,6 +57,21 @@ def main(args):
     baseline = LinearFeatureBaseline(
         int(np.prod(sampler.envs.observation_space.shape)))
 
+
+
+
+
+
+    if args.resume_training:
+        saved_policy_path = os.path.join(save_folder, 'policy-125.pt')
+        if os.path.isfile(saved_policy_path):
+            print('Loading a saved policy')
+            policy_info = torch.load(saved_policy_path)
+            policy.load_state_dict(policy_info)
+        else:
+            sys.exit("The requested policy does not exist for loading")
+            
+
     metalearner = MetaLearner(sampler, policy, baseline, gamma=args.gamma,
         fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
@@ -87,7 +102,7 @@ def main(args):
             with open(os.path.join(log_traj_folder, 'valid_episodes_observ_'+str(batch)+'.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.numpy() for _, ep in episodes], f)
             # save tasks
-            # sample task list of 2: [{'goal': array([0.0209588 , 0.15981938])}, {'goal': array([0.45034602, 0.17282322])}]
+            # a sample task list of 2: [{'goal': array([0.0209588 , 0.15981938])}, {'goal': array([0.45034602, 0.17282322])}]
             with open(os.path.join(log_traj_folder, 'tasks_'+str(batch)+'.pkl'), 'wb') as f: 
                 pickle.dump(tasks, f)
             
@@ -100,7 +115,7 @@ def main(args):
             with open(os.path.join(log_traj_folder, 'latest_tasks.pkl'), 'wb') as f: 
                 pickle.dump(tasks, f)
 
-        print('finish epoch {}; time elapsed: {}'.format(batch,  time_elapsed(time.time() - start_time)))
+        print('finished epoch {}; time elapsed: {}'.format(batch,  time_elapsed(time.time() - start_time)))
 
         # print(episodes[0][1].observations.shape) # the valid episode of the first task
         # print("FINISHED the first batch of meta-learning")
@@ -164,6 +179,8 @@ if __name__ == '__main__':
         help='number of workers for trajectories sampling')
     parser.add_argument('--device', type=str, default='cuda',
         help='set the device (cpu or cuda)')
+    parser.add_argument('--resume_training', type=bool, default=True,
+        help='if want to resume training from a saved policy')
 
     args = parser.parse_args()
 
