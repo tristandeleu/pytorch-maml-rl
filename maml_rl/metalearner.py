@@ -75,17 +75,20 @@ class MetaLearner(object):
         episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
-
-
-            train_episodes = self.sampler.sample(self.policy,
-                gamma=self.gamma, device=self.device)
+            train_episodes = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device)
 
             # print(train_episodes.observations.shape)
             # print("REACHED self.sampler.reset_task(task)")
-            params = self.adapt(train_episodes, first_order=first_order)
+            # ewerfwe
+            valid_episodes = train_episodes
+            for _ in range(3): # 3 step gradient
+                params = self.adapt(valid_episodes, first_order=first_order)
+                valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
 
-            valid_episodes = self.sampler.sample(self.policy, params=params,
-                gamma=self.gamma, device=self.device)
+
+            # params = self.adapt(train_episodes, first_order=first_order)
+            # valid_episodes = self.sampler.sample(self.policy, params=params,gamma=self.gamma, device=self.device)
+
             episodes.append((train_episodes, valid_episodes))
         return episodes
 
