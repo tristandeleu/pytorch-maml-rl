@@ -26,9 +26,10 @@ def time_elapsed(elapsed_seconds):
     return  ', '.join('{} {}'.format(value, name) for name, value in periods if value)
 
 def main(args):
+    print(args)
     continuous_actions = (args.env_name in ['AntVel-v1', 'AntDir-v1',
         'AntPos-v0', 'HalfCheetahVel-v1', 'HalfCheetahDir-v1',
-        '2DNavigation-v0'])
+        '2DNavigation-v0', 'RVONavigation-v0'])
 
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_folder = './saves/{0}'.format(args.output_folder)
@@ -58,10 +59,6 @@ def main(args):
         int(np.prod(sampler.envs.observation_space.shape)))
 
 
-
-
-
-
     if args.resume_training:
         saved_policy_path = os.path.join(save_folder, 'policy-125.pt')
         if os.path.isfile(saved_policy_path):
@@ -76,6 +73,8 @@ def main(args):
         fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
     start_time = time.time()
+    print('Started training....')
+    
     for batch in range(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
         episodes = metalearner.sample(tasks, first_order=args.first_order)
@@ -173,13 +172,13 @@ if __name__ == '__main__':
         help='name of the output folder')
     parser.add_argument('--output-traj-folder', type=str, default='2DNavigation-traj-dir',
         help='name of the output trajectory folder')
-    parser.add_argument('--save_every', type=int, default=5,     
+    parser.add_argument('--save-every', type=int, default=5,     
                         help='save frequency')
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling')
-    parser.add_argument('--device', type=str, default='cuda',
+    parser.add_argument('--device', type=str, default='cpu',
         help='set the device (cpu or cuda)')
-    parser.add_argument('--resume_training', type=bool, default=True,
+    parser.add_argument('--resume-training', type=bool, default=False,
         help='if want to resume training from a saved policy')
 
     args = parser.parse_args()

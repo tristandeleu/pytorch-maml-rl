@@ -66,3 +66,9 @@ register(
     entry_point='maml_rl.envs.navigation:Navigation2DEnv',
     max_episode_steps=100
 )
+
+register(
+    id = 'RVONavigation-v0',
+    entry_point='maml_rl.envs.navRVO2:NavRVO2Env',
+    max_episode_steps=100
+)
