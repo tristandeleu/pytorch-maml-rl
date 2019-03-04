@@ -110,3 +110,5 @@ saves/
 
 # Slurm
 *.out
+
+*.DS_Store
