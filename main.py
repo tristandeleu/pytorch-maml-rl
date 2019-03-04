@@ -98,9 +98,9 @@ def main(args):
 
         if batch == 0:
             with open(os.path.join(log_traj_folder, 'train_episodes_observ_'+str(batch)+'.pkl'), 'wb') as f: 
-                pickle.dump([ep.observations.numpy() for ep, _ in episodes], f)
+                pickle.dump([ep.observations.cpu().numpy() for ep, _ in episodes], f)
             with open(os.path.join(log_traj_folder, 'valid_episodes_observ_'+str(batch)+'.pkl'), 'wb') as f: 
-                pickle.dump([ep.observations.numpy() for _, ep in episodes], f)
+                pickle.dump([ep.observations.cpu().numpy() for _, ep in episodes], f)
             # save tasks
             # a sample task list of 2: [{'goal': array([0.0209588 , 0.15981938])}, {'goal': array([0.45034602, 0.17282322])}]
             with open(os.path.join(log_traj_folder, 'tasks_'+str(batch)+'.pkl'), 'wb') as f: 
@@ -109,9 +109,9 @@ def main(args):
         else:
             # supposed to be overwritten for each batch
             with open(os.path.join(log_traj_folder, 'latest_train_episodes_observ.pkl'), 'wb') as f: 
-                pickle.dump([ep.observations.numpy() for ep, _ in episodes], f)
+                pickle.dump([ep.observations.cpu().numpy() for ep, _ in episodes], f)
             with open(os.path.join(log_traj_folder, 'latest_valid_episodes_observ.pkl'), 'wb') as f: 
-                pickle.dump([ep.observations.numpy() for _, ep in episodes], f)
+                pickle.dump([ep.observations.cpu().numpy() for _, ep in episodes], f)
             with open(os.path.join(log_traj_folder, 'latest_tasks.pkl'), 'wb') as f: 
                 pickle.dump(tasks, f)
 
