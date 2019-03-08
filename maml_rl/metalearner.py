@@ -75,22 +75,49 @@ class MetaLearner(object):
         episodes = []
         for task in tasks:
             self.sampler.reset_task(task)
-            train_episodes = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device)
+            train_episodes = self.sampler.sample(self.policy,
+                gamma=self.gamma, device=self.device)
 
-            # print(train_episodes.observations.shape)
-            # print("REACHED self.sampler.reset_task(task)")
-            # ewerfwe
-            valid_episodes = train_episodes
-            for _ in range(3): # 3 step gradient
-                params = self.adapt(valid_episodes, first_order=first_order)
-                valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
+            params = self.adapt(train_episodes, first_order=first_order)
 
-
-            # params = self.adapt(train_episodes, first_order=first_order)
-            # valid_episodes = self.sampler.sample(self.policy, params=params,gamma=self.gamma, device=self.device)
-
+            valid_episodes = self.sampler.sample(self.policy, params=params,
+                gamma=self.gamma, device=self.device)
             episodes.append((train_episodes, valid_episodes))
         return episodes
+
+    def sample_test(self, task, first_order=False):
+        """Sample trajectories (before and after the update of the parameters) 
+        for all the tasks `tasks`.
+        """
+        episodes = []
+        self.sampler.reset_task(task)
+        train_episodes = self.sampler.sample(self.policy,
+            gamma=self.gamma, device=self.device)
+
+        params = self.adapt(train_episodes, first_order=first_order)
+
+        valid_episodes = self.sampler.sample(self.policy, params=params,
+            gamma=self.gamma, device=self.device)
+        episodes.append(train_episodes)
+        episodes.append(valid_episodes)
+        return episodes
+
+    def test(self, task, n_grad = 3, first_order=False):
+        """Sample trajectories for a single task with at most n_grads
+        """
+        test_episodes = []
+        # self.sampler.reset_task(task)
+        episodes_0 = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device) 
+        test_episodes.append(episodes_0)
+
+        for i in range(n_grad):
+            episodes_prev = test_episodes[-1]
+            # print("loss = ", self.inner_loss(episodes_prev))
+            params = self.adapt(episodes_prev, first_order=first_order)
+            episodes_i = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
+            test_episodes.append(episodes_i)
+
+        return test_episodes
 
     def kl_divergence(self, episodes, old_pis=None):
         kls = []

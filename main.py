@@ -30,6 +30,7 @@ def main(args):
     continuous_actions = (args.env_name in ['AntVel-v1', 'AntDir-v1',
         'AntPos-v0', 'HalfCheetahVel-v1', 'HalfCheetahDir-v1',
         '2DNavigation-v0', 'RVONavigation-v0'])
+    assert continuous_actions == True
 
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_folder = './saves/{0}'.format(args.output_folder)
@@ -59,11 +60,12 @@ def main(args):
         int(np.prod(sampler.envs.observation_space.shape)))
 
 
+    # Loading policy
     if args.resume_training:
-        saved_policy_path = os.path.join(save_folder, 'policy-125.pt')
-        if os.path.isfile(saved_policy_path):
+        saved_policy_file = os.path.join(save_folder, 'policy-125.pt')
+        if os.path.isfile(saved_policy_file):
             print('Loading a saved policy')
-            policy_info = torch.load(saved_policy_path)
+            policy_info = torch.load(saved_policy_file, map_location=lambda storage, loc: storage)
             policy.load_state_dict(policy_info)
         else:
             sys.exit("The requested policy does not exist for loading")

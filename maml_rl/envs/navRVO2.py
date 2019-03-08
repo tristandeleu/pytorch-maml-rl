@@ -89,8 +89,9 @@ class NavRVO2Env(gym.Env):
 
     def sample_tasks(self, num_tasks):
         # tasks includes various goal_pos and ped_direcs
-        goals = self.np_random.uniform(-0.5, 0.5, size=(num_tasks, 2))
-        
+        # goals = self.np_random.uniform(-0.5, 0.5, size=(num_tasks, 2))
+        goals = self.np_random.uniform(1.0, 1.0, size=(num_tasks, 2))
+
         ped_speeds = self.np_random.uniform(0.1, 0.1, size=num_tasks)
 
         ped_direc = np.arctan2(-self._ped_states[:,1], -self._ped_states[:,0])
