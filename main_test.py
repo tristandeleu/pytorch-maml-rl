@@ -44,7 +44,7 @@ def main(args):
         hidden_sizes=(args.hidden_size,) * args.num_layers)
 
     # Loading policy
-    saved_policy_file = os.path.join('./saved_policy/{0}'.format('maml-2DNavigation-dir'), 'policy-760.pt')
+    saved_policy_file = os.path.join('./saved_policy/{0}'.format('maml-RVONavigation-dir'), 'policy-130.pt')
     if os.path.isfile(saved_policy_file):
         print('Loading saved policy')
         policy_info = torch.load(saved_policy_file, map_location=lambda storage, loc: storage)
@@ -72,8 +72,11 @@ def main(args):
 
     for n_grad, ep in test_episodes:
         print(n_grad)
+        # print(ep.hid_observations)
         with open(os.path.join(test_folder, 'test_episodes_grad'+str(n_grad)+'.pkl'), 'wb') as f: 
             pickle.dump([ep.observations.cpu().numpy(), ep], f)
+        with open(os.path.join(test_folder, 'test_peds_grad'+str(n_grad)+'.pkl'), 'wb') as f: 
+            pickle.dump([ep.hid_observations.cpu().numpy(), ep], f)
 
     print('Finished test. Time elapsed = {}'.format(time_elapsed(time.time() - start_time)))
 
@@ -87,7 +90,7 @@ if __name__ == '__main__':
         'Model-Agnostic Meta-Learning (MAML)')
 
     # General
-    parser.add_argument('--env-name', type=str, default='2DNavigation-v0',
+    parser.add_argument('--env-name', type=str, default='RVONavigation-v0',
         help='name of the environment')
     parser.add_argument('--gamma', type=float, default=0.95,
         help='value of the discount factor gamma')
@@ -105,7 +108,7 @@ if __name__ == '__main__':
     # Task-specific
     parser.add_argument('--fast-batch-size', type=int, default=15,
         help='batch size for each individual task')
-    parser.add_argument('--fast-lr', type=float, default=0.05,
+    parser.add_argument('--fast-lr', type=float, default=0.5,
         help='learning rate for the 1-step gradient update of MAML')
 
     # Optimization
@@ -123,7 +126,7 @@ if __name__ == '__main__':
     # Miscellaneous
     parser.add_argument('--output-folder', type=str, default='test_nav',
         help='name of the output folder')
-    parser.add_argument('--num-workers', type=int, default=3,
+    parser.add_argument('--num-workers', type=int, default=1,
         help='number of workers for trajectories sampling')
     parser.add_argument('--grad-steps', type=int, default=1,
         help='number of gradient updates steps')

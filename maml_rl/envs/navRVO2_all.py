@@ -6,7 +6,7 @@ from gym.utils import seeding
 import rvo2
 
 
-class NavRVO2Env(gym.Env):
+class NavRVO2Env_all(gym.Env):
     """
     What's new for the new environment:
     Added 8 pedestrians initialized to be at 4 corners ([-0.8,-0.8], [0.8,-0.8], [0.8,0.8], [-0.8,0.8]) 
@@ -16,15 +16,15 @@ class NavRVO2Env(gym.Env):
     """
     
     def __init__(self, task={}):
-        super(NavRVO2Env, self).__init__()
+        super(NavRVO2Env_all, self).__init__()
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
-            shape=(2,), dtype=np.float32)
+            shape=(4,), dtype=np.float32)
         self.action_space = spaces.Box(low=-0.1, high=0.1,
             shape=(2,), dtype=np.float32)
 
         self._task = task
         self._goal = task.get('goal', np.zeros(2, dtype=np.float32))
-        self._state = np.zeros(2, dtype=np.float32)
+        self._state = np.zeros(4, dtype=np.float32)
         self.seed()
 
         self._num_ped = 4
@@ -144,7 +144,7 @@ class NavRVO2Env(gym.Env):
             
 
     def reset(self, env=True):
-        self._state = np.zeros(2, dtype=np.float32)
+        self._state = np.zeros(4, dtype=np.float32)
         self._ped_histories = []
         self._ped_states = self._default_ped_states
         return self._state
@@ -158,7 +158,10 @@ class NavRVO2Env(gym.Env):
             print("AssertionError: action is {}".format(action))
 
         # Update robot's state
-        self._state = self._state + action
+        # print(self._state[0:1], action)
+        self._state[0:2] = self._state[0:2] + action
+        self._state[2:4] = [self._ped_states[0,0], self._ped_states[0,1]]
+
         dx = self._state[0] - self._goal[0]
         dy = self._state[1] - self._goal[1]
 

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 # goal: an array of 2; train/valid: (2, 100); 
-def plot_traj(goal, train, valid):
+def plot_traj(goal, train, valid, ped_t, ped_v):
 
 	print(goal)
 	print(" ")
@@ -22,6 +22,10 @@ def plot_traj(goal, train, valid):
 	ax.plot(train[:,0], train[:,1], '-.', color='b', linewidth=2, label='train')
 	ax.plot(valid[:,0], valid[:,1], '--', color='g', linewidth=2, label='valid')
 
+	ax.plot(ped_t[:,0], ped_t[:,1], '-.', color='r', linewidth=1, label='ped train')
+	ax.plot(ped_v[:,0], ped_v[:,1], '--', color='r', linewidth=1, label='ped valid')
+	# print(ped_t)
+
 	ax.plot(train[-1,0], train[-1,1], 'bo', markersize=15, markeredgewidth=0, label='train end')
 	ax.plot(valid[-1,0], valid[-1,1], 'go', markersize=15, markeredgewidth=0, label='valid end')
 
@@ -32,8 +36,8 @@ def plot_traj(goal, train, valid):
 	ax.legend()
 	ax.set_xlabel('x')
 	ax.set_ylabel('y')
-	ax.set_xlim([-1, 1]) 
-	ax.set_ylim([-1, 1]) 
+	ax.set_xlim([-1.5, 1.5]) 
+	ax.set_ylim([-1.5, 1.5]) 
 	# plt.show()
 	return fig
 	
@@ -43,7 +47,11 @@ def get_traj(folder_path, traj_ind, num_grad):
 	trajs = pickle.load(open(folder_path + trajs_file_name, "rb" ))
 	traj = np.squeeze(trajs[0][:,traj_ind, :])
 
-	return traj
+	peds_file_name = 'test_peds_grad'+str(num_grad)+'.pkl'
+	peds = pickle.load(open(folder_path + peds_file_name, "rb" ))
+	ped = np.squeeze(peds[0][:,traj_ind, :])
+
+	return traj, ped
 	
 def main():
 	parser = argparse.ArgumentParser(description='MAML 2DNavigation plot making')
@@ -100,11 +108,11 @@ def main():
 		task_file_name = 'task.pkl'
 		task = pickle.load(open(folder_path + task_file_name, "rb" ))
 
-		traj0 = get_traj(folder_path, args.traj_ind, 0)
+		traj_train, ped_train = get_traj(folder_path, args.traj_ind, 0)
 
-		traj1 = get_traj(folder_path, args.traj_ind, 1)
+		traj_valid, ped_valid = get_traj(folder_path, args.traj_ind, 1)
 
-		fig = plot_traj(task['goal'], traj0, traj1)
+		fig = plot_traj(task['goal'], traj_train, traj_valid, ped_train, ped_valid)
 		fig.savefig(folder_path+'test.png', bbox_inches='tight')
 
 

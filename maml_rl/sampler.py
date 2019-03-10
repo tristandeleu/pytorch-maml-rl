@@ -1,6 +1,7 @@
 import gym
 import torch
 import multiprocessing as mp
+import numpy as np
 
 from maml_rl.envs.subproc_vec_env import SubprocVecEnv
 from maml_rl.episode import BatchEpisodes
@@ -36,7 +37,9 @@ class BatchSampler(object):
                 actions = actions_tensor.cpu().numpy()
             new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
 
-            episodes.append(observations, actions, rewards, batch_ids)
+            new_hid_observations = self.envs.get_peds()
+
+            episodes.append(observations, new_hid_observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids
         return episodes
 

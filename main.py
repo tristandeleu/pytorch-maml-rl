@@ -29,7 +29,7 @@ def main(args):
     print(args)
     continuous_actions = (args.env_name in ['AntVel-v1', 'AntDir-v1',
         'AntPos-v0', 'HalfCheetahVel-v1', 'HalfCheetahDir-v1',
-        '2DNavigation-v0', 'RVONavigation-v0'])
+        '2DNavigation-v0', 'RVONavigation-v0', 'RVONavigationAll-v0'])
     assert continuous_actions == True
 
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
@@ -62,7 +62,7 @@ def main(args):
 
     # Loading policy
     if args.resume_training:
-        saved_policy_file = os.path.join(save_folder, 'policy-125.pt')
+        saved_policy_file = os.path.join('./saved_policy/maml-2DNavigation-dir', 'policy-760.pt')
         if os.path.isfile(saved_policy_file):
             print('Loading a saved policy')
             policy_info = torch.load(saved_policy_file, map_location=lambda storage, loc: storage)
@@ -170,11 +170,11 @@ if __name__ == '__main__':
         help='maximum number of iterations for line search')
 
     # Miscellaneous
-    parser.add_argument('--output-folder', type=str, default='maml-2DNavigation-dir',
+    parser.add_argument('--output-folder', type=str, default='maml-RVONavigation-dir',
         help='name of the output folder')
-    parser.add_argument('--output-traj-folder', type=str, default='2DNavigation-traj-dir',
+    parser.add_argument('--output-traj-folder', type=str, default='RVONavigation-traj-dir',
         help='name of the output trajectory folder')
-    parser.add_argument('--save-every', type=int, default=5,     
+    parser.add_argument('--save-every', type=int, default=10,     
                         help='save frequency')
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling')
