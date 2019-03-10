@@ -9,7 +9,7 @@ import rvo2
 class NavRVO2Env_all(gym.Env):
     """
     What's new for the new environment:
-    Added 8 pedestrians initialized to be at 4 corners ([-0.8,-0.8], [0.8,-0.8], [0.8,0.8], [-0.8,0.8]) 
+    Added 4 pedestrians initialized to be at 4 corners ([-0.8,-0.8], [0.8,-0.8], [0.8,0.8], [-0.8,0.8]) 
     of a rectangle centering at the origin. 2 pedestrians at each corner. They walk almostly 
     diagonally towards the other side (specific direction is upon randomness). After they exit the rectangle, 
     they will be initialized at the corners again. 
@@ -82,7 +82,7 @@ class NavRVO2Env_all(gym.Env):
             print("Agent", i,": pos=", self._ped_states[i])
 
     def print_robot_state(self):
-        print("Robot: pos=", self._state)
+        print("Robot: pos=", self._state[0:2])
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -125,6 +125,7 @@ class NavRVO2Env_all(gym.Env):
                 vy = self._ped_speed * np.sin(self._ped_direc[ai])
                 self._simulator.setAgentVelocity(ai, (vx, vy))
                 self._simulator.setAgentPrefVelocity(ai, (vx, vy))
+                # print("ped i velocity = ", self._simulator.getAgentVelocity(ai)
 
     def assert_sim_and_states(self):
         for i in self._ped_list:
