@@ -32,15 +32,23 @@ def plot_traj(goal, train, valid):
 	ax.legend()
 	ax.set_xlabel('x')
 	ax.set_ylabel('y')
+	ax.set_xlim([-1, 1]) 
+	ax.set_ylim([-1, 1]) 
 	# plt.show()
 	return fig
 	
+def get_traj(folder_path, traj_ind, num_grad):
 
+	trajs_file_name = 'test_episodes_grad'+str(num_grad)+'.pkl'
+	trajs = pickle.load(open(folder_path + trajs_file_name, "rb" ))
+	traj = np.squeeze(trajs[0][:,traj_ind, :])
+
+	return traj
 	
 def main():
 	parser = argparse.ArgumentParser(description='MAML 2DNavigation plot making')
 	parser.add_argument('--task_ind', type=int, default=10, help='which task to be plotted')
-	parser.add_argument('--traj_ind', type=int, default=0, help='which trajectory to be plotted')
+	parser.add_argument('--traj_ind', type=int, default=10, help='which trajectory to be plotted')
 	# parser.add_argument('--x_scaling_factor', type=float, default=0.36883, help='true x = current_x * x_scaling_factor')
 	# parser.add_argument('--y_scaling_factor', type=float, default=0.459005, help='true y = current_y * y_scaling_factor')
 	parser.add_argument('--plot-type', type=str, default='train', help='train or test')
@@ -84,24 +92,17 @@ def main():
 
 		one_train = np.squeeze(train_traj_list[args.task_ind][:,args.traj_ind, :])
 		one_valid = np.squeeze(valid_traj_list[args.task_ind][:,args.traj_ind, :])
-		plot_traj(one_task['goal'], one_train, one_valid)
+		fig = plot_traj(one_task['goal'], one_train, one_valid)
+		fig.savefig('./logs/2DNavigation-traj-dir/' + 'test.png', bbox_inches = 'tight')
 
 	else:
 		folder_path = './test_nav/'
 		task_file_name = 'task.pkl'
 		task = pickle.load(open(folder_path + task_file_name, "rb" ))
 
-		trajs0_file_name = 'test_episodes_grad0.pkl'
-		trajs0 = pickle.load(open(folder_path + trajs0_file_name, "rb" ))
-		traj0 = np.squeeze(trajs0[0][:,args.traj_ind, :])
+		traj0 = get_traj(folder_path, args.traj_ind, 0)
 
-		trajs1_file_name = 'test_episodes_grad1.pkl'
-		trajs1 = pickle.load(open(folder_path + trajs1_file_name, "rb" ))
-		traj1 = np.squeeze(trajs1[0][:,args.traj_ind, :])
-
-		# trajs5_file_name = 'test_episodes_grad5.pkl'
-		# trajs5 = pickle.load(open(folder_path + trajs5_file_name, "rb" ))
-		# traj5 = np.squeeze(trajs5[0][:,args.traj_ind, :])
+		traj1 = get_traj(folder_path, args.traj_ind, 1)
 
 		fig = plot_traj(task['goal'], traj0, traj1)
 		fig.savefig(folder_path+'test.png', bbox_inches='tight')

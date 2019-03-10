@@ -61,15 +61,19 @@ def main(args):
     start_time = time.time()
     # goals = [[-0.3, 0.3]]
     # tasks = [{'goal': goal} for goal in goals]
-    task = sampler.sample_tasks(num_tasks=1)[0]
-    test_episodes = metalearner.sample_test(task, first_order=args.first_order)
-    # test_episodes = metalearner.test(task, n_grad = args.grad_steps, first_order=args.first_order)
+    tasks = sampler.sample_tasks(num_tasks=1)
+    task = tasks[0]
 
+    # test_episodes = metalearner.sample_test(task, first_order=args.first_order)
+
+    test_episodes = metalearner.test(task, n_grad = args.grad_steps, first_order=args.first_order)
     with open(os.path.join(test_folder, 'task.pkl'), 'wb') as f: 
         pickle.dump(task, f)
-    for num_grad in range(len(test_episodes)):
-        with open(os.path.join(test_folder, 'test_episodes_grad'+str(num_grad)+'.pkl'), 'wb') as f: 
-            pickle.dump([ep.observations.cpu().numpy() for ep in test_episodes], f)
+
+    for n_grad, ep in test_episodes:
+        print(n_grad)
+        with open(os.path.join(test_folder, 'test_episodes_grad'+str(n_grad)+'.pkl'), 'wb') as f: 
+            pickle.dump([ep.observations.cpu().numpy(), ep], f)
 
     print('Finished test. Time elapsed = {}'.format(time_elapsed(time.time() - start_time)))
 
@@ -101,12 +105,10 @@ if __name__ == '__main__':
     # Task-specific
     parser.add_argument('--fast-batch-size', type=int, default=15,
         help='batch size for each individual task')
-    parser.add_argument('--fast-lr', type=float, default=0.5,
+    parser.add_argument('--fast-lr', type=float, default=0.05,
         help='learning rate for the 1-step gradient update of MAML')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=3,
-        help='number of batches')
     parser.add_argument('--max-kl', type=float, default=1e-2,
         help='maximum value for the KL constraint in TRPO')
     parser.add_argument('--cg-iters', type=int, default=10,
@@ -121,9 +123,9 @@ if __name__ == '__main__':
     # Miscellaneous
     parser.add_argument('--output-folder', type=str, default='test_nav',
         help='name of the output folder')
-    parser.add_argument('--num-workers', type=int, default=1,
+    parser.add_argument('--num-workers', type=int, default=3,
         help='number of workers for trajectories sampling')
-    parser.add_argument('--grad-steps', type=int, default=3,
+    parser.add_argument('--grad-steps', type=int, default=1,
         help='number of gradient updates steps')
 
     args = parser.parse_args()

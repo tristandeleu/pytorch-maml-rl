@@ -98,8 +98,8 @@ class MetaLearner(object):
 
         valid_episodes = self.sampler.sample(self.policy, params=params,
             gamma=self.gamma, device=self.device)
-        episodes.append(train_episodes)
-        episodes.append(valid_episodes)
+        episodes.append((0,train_episodes))
+        episodes.append((1,valid_episodes))
         return episodes
 
     def test(self, task, n_grad = 3, first_order=False):
@@ -108,14 +108,14 @@ class MetaLearner(object):
         test_episodes = []
         # self.sampler.reset_task(task)
         episodes_0 = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device) 
-        test_episodes.append(episodes_0)
+        test_episodes.append((0, episodes_0))
 
         for i in range(n_grad):
-            episodes_prev = test_episodes[-1]
+            _, episodes_prev = test_episodes[-1]
             # print("loss = ", self.inner_loss(episodes_prev))
             params = self.adapt(episodes_prev, first_order=first_order)
             episodes_i = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
-            test_episodes.append(episodes_i)
+            test_episodes.append((i+1, episodes_i))
 
         return test_episodes
 
