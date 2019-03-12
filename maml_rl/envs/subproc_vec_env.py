@@ -59,6 +59,7 @@ class EnvWorker(mp.Process):
 
             elif command == 'get_peds':
                 self.remote.send(self.env.unwrapped._ped_states[0].reshape(1,2))
+#                 self.remote.send(self.env.unwrapped._ped_states.reshape(8,))
             else:
                 raise NotImplementedError()
 
