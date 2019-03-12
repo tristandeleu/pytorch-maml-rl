@@ -25,8 +25,7 @@ class BatchEpisodes(object):
     def observations(self):
         if self._observations is None:
             observation_shape = self._observations_list[0][0].shape
-            observations = np.zeros((len(self), self.batch_size)
-                + observation_shape, dtype=np.float32)
+            observations = np.zeros((len(self), self.batch_size) + observation_shape, dtype=np.float32)
             for i in range(self.batch_size):
                 length = len(self._observations_list[i])
                 observations[:length, i] = np.stack(self._observations_list[i], axis=0)
@@ -48,8 +47,7 @@ class BatchEpisodes(object):
     def actions(self):
         if self._actions is None:
             action_shape = self._actions_list[0][0].shape
-            actions = np.zeros((len(self), self.batch_size)
-                + action_shape, dtype=np.float32)
+            actions = np.zeros((len(self), self.batch_size) + action_shape, dtype=np.float32)
             for i in range(self.batch_size):
                 length = len(self._actions_list[i])
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
