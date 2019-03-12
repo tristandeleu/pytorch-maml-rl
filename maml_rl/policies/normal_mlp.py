@@ -22,8 +22,10 @@ class NormalMLPPolicy(Policy):
 
 
         # Social Attention (w/o local map) Begin
+        self.ped_num = 4
         self.self_state_dim = 2 # 6   # Remember to replace if needed
-        input_dim = 4 # 13 # self_state + human_state  # Replace if needed!
+        self.ped_state_dim = 2
+        input_dim = self.self_state_dim + self.ped_state_dim # 13 # self_state + human_state  # Replace if needed!
         self.mlp1_dims = [150, 100]
         self.mlp2_dims = [100, 50]
         self.attention_dims = [100, 100, 1] # one score for one human
@@ -43,9 +45,9 @@ class NormalMLPPolicy(Policy):
 
 
         # self.attention = mlp(mlp1_dims[-1], attention_dims)
-        # attention_layer_size = [self.mlp1_dims[-1]] + self.attention_dims
-        # for i in range(1, len(attention_layer_size)):
-        #     self.add_module('attention{0}'.format(i), nn.Linear(attention_layer_size[i - 1], attention_layer_size[i]))
+        attention_layer_size = [self.mlp1_dims[-1]] + self.attention_dims
+        for i in range(1, len(attention_layer_size)):
+            self.add_module('attention{0}'.format(i), nn.Linear(attention_layer_size[i - 1], attention_layer_size[i]))
 
 
         mlp3_input_dim = self.mlp2_dims[-1] + self.self_state_dim
@@ -78,40 +80,22 @@ class NormalMLPPolicy(Policy):
             params = OrderedDict(self.named_parameters())
 
         # Social Attention (w/o local map) Begin
-        size = state.shape
-        if len(size) == 3:
-            state = state.view(size[0], size[1], 1, 4)
-        if len(size) == 2:
-            state = state.view(size[0], 1, 4)
-        if len(size) == 1:
-            state = state.view(1, 4)
-
-        state = state.float()
-        size = state.shape # (100, 20, 5, 13)
-        if len(size) == 4:
-            self_state = state[:, :, 0, :self.self_state_dim] # (100, 20, 6)
-        elif len(size) == 3:
-            self_state = state[:, 0, :self.self_state_dim]
-        elif len(size) == 2:
-            self_state = state[0, :self.self_state_dim]
-        else:
-            sys.exit('Execution stopped: NN input is '+str(size))
+        
 
                 # mlp1_output = self.mlp1(state.view((-1, size[2]))) # (traj# * - * -, hidden size) = (100 * 20 * 5, 100)
+        state, self_state = convert_to_robot_ped_pair(state.float(), self.self_state_dim, self.ped_state_dim, self.ped_num)
+
+        size = state.shape
 
         mlp1_output = state.view((-1, size[-1])) # this is actually input
-       
-        # print(mlp1_output.shape)
-        # print(len(self.mlp1_dims)+1)
-        # rrr
+      
 
         for i in range(1, len(self.mlp1_dims)+1):
             # print(" ")
             # print(mlp1_output.shape)
             mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
             mlp1_output = self.nonlinearity(mlp1_output)
-        # print(mlp1_output.shape)
-        # rrr
+       
         # mlp2_output = self.mlp2(mlp1_output) # (traj# * - * -, hidden size) = (100 * 20 * 5, 50)
         mlp2_output = mlp1_output # mlp2_output here is actually input
         layers = len(self.mlp2_dims)+1
@@ -122,34 +106,34 @@ class NormalMLPPolicy(Policy):
             
 
   
-        # attention_output = mlp1_output # (100 * 20 * 5, 100)
-        # layers = len(self.attention_dims)+1
-        # for i in range(1, layers):
-        #     attention_output = F.linear(attention_output, weight=params['attention{0}.weight'.format(i)], bias=params['attention{0}.bias'.format(i)])
-        #     if i != layers - 1:
-        #         attention_output = self.nonlinearity(attention_output)
+        attention_output = mlp1_output # (100 * 20 * 5, 100)
+        layers = len(self.attention_dims)+1
+        for i in range(1, layers):
+            attention_output = F.linear(attention_output, weight=params['attention{0}.weight'.format(i)], bias=params['attention{0}.bias'.format(i)])
+            if i != layers - 1:
+                attention_output = self.nonlinearity(attention_output)
 
 
-        # if len(size) == 4:
-        #     scores = attention_output.view(size[0], size[1], size[2], 1).squeeze(dim=3) # (100, 20, 5)
-        # elif len(size) == 3:
-        #     scores = attention_output.view(size[0], size[1], 1).squeeze(dim=2) # (100, 20, 5)
-        # elif len(size) == 2:
-        #     scores = attention_output.view(size[0], 1).squeeze(dim=1) # (100, 20, 5)
-        # else:
-        #     sys.exit('Execution stopped: Something wrong with score size '+str(scores.shape))
+        if len(size) == 4:
+            scores = attention_output.view(size[0], size[1], size[2], 1).squeeze(dim=3) # (100, 20, 5)
+        elif len(size) == 3:
+            scores = attention_output.view(size[0], size[1], 1).squeeze(dim=2) # (100, 20, 5)
+        elif len(size) == 2:
+            scores = attention_output.view(size[0], 1).squeeze(dim=1) # (100, 20, 5)
+        else:
+            sys.exit('Execution stopped: Something wrong with score size '+str(scores.shape))
 
-        # # masked softmax
-        # # weights = softmax(scores, dim=1).unsqueeze(2)
-        # scores_exp = torch.exp(scores) * (scores != 0).float() # (100, 20, 5)
+        # masked softmax
+        # weights = softmax(scores, dim=1).unsqueeze(2)
 
-        # score_sum = torch.sum(scores_exp, dim=len(size)-2, keepdim=True)
-        # for i in range(6):
-        #     if score_sum[i,0].detach().numpy() == 0.0:
-        #         score_sum[i,0] = 1
 
+        scores_exp = torch.exp(scores) * (scores != 0).float() # (100, 20, 5)
+
+        score_sum = torch.sum(scores_exp, dim=len(size)-2, keepdim=True) # (100, 20, 1)
+
+    
         # comment out weights here so that NN can ignore this differentiated Tensor
-        # weights = (scores_exp / score_sum).unsqueeze(len(size)-1) # (100, 20, 5, 1)
+        weights = (scores_exp / (score_sum + 1e-5)).unsqueeze(len(size)-1) # (100, 20, 5, 1)
 
         # output feature is a linear combination of input features
         if len(size) == 4:
@@ -160,9 +144,9 @@ class NormalMLPPolicy(Policy):
             features = mlp2_output.view(size[0], -1) 
 
         # weights = torch.ones(scores_exp.shape).unsqueeze(len(size)-1)
-        # weighted_feature = torch.sum(torch.mul(weights, features), dim=len(size)-2) # (100, 20, 50)
-        weighted_feature = torch.sum(features, dim=len(size)-2) # (100, 20, 50)
-
+        weighted_feature = torch.sum(torch.mul(weights, features), dim=len(size)-2) # (100, 20, 50)
+        # weighted_feature = torch.sum(features, dim=len(size)-2) # (100, 20, 50)
+      
         # concatenate agent's state with global weighted humans' state
         joint_state = torch.cat([self_state, weighted_feature], dim=len(size)-2) # (100, 20, 56)
 
@@ -190,41 +174,33 @@ class NormalMLPPolicy(Policy):
         scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))
 
 
-        # if any(np.isnan(np.ravel(weights.detach().numpy()))):
-        #     print(" torch.sum for weights: ")
-        #     print(torch.sum(scores_exp, dim=len(size)-2, keepdim=True))
-
-
-
-
-        if any(np.isnan(np.ravel(mu.detach().numpy()))):
-
-            print("  ")
-            print("mlp1_input: {}".format(state.view((-1, size[-1]))))
-
-            print("  ")
-            print("mlp1_layer1.weight: {}".format(params['mlp1_layer1.weight']))
-
-            print("  ")
-            print("mlp1_layer1.bias: {}".format(params['mlp1_layer1.bias']))
-
-            # for i in range(1, len(self.mlp1_dims)+1):
-            #     print('mlp1_layer{0}.weight'.format(i))
-            # mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
-            # mlp1_output = self.nonlinearity(mlp1_output)
-
-            # print("  ")
-            # print("mlp2_output {}".format(mlp2_output))
-
-            print("  ")
-            print("mu: {}".format(mu))
-            jdjdjdj
-
-        # print(np.ravel(mu.detach().numpy()))
-
-        # print(mu.shape)
 
         return Normal(loc=mu, scale=scale)
+
+# self_state_dim = 2
+# ped_state_dim = 2
+# ped_num = 5
+# state = torch.zeros((100,20, 12))  # 1 robot, 4 ped
+def convert_to_robot_ped_pair(state, self_state_dim, ped_state_dim, ped_num):
+    size = state.shape
+    if len(size) == 3:
+        self_state = state[:,:, :self_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[:,:, self_state_dim:].view(size[0], size[1], ped_num, ped_state_dim)
+    if len(size) == 2:
+        self_state = state[:,:self_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[:,self_state_dim:].view(size[0], ped_num, ped_state_dim)
+    if len(size) == 1:
+        self_state = state[:self_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[self_state_dim:].view(ped_num, ped_state_dim)
+
+    ped_state_list = torch.split(ped_state, 1, dim=len(size)-1)
+
+    robot_ped_pair_list = []
+    for i in range(ped_num):
+        robot_ped_pair_list.append(torch.cat((self_state, ped_state_list[i]), dim=len(size)))
+
+    robot_ped_pairs = torch.cat(robot_ped_pair_list, dim=len(size)-1)
+    return robot_ped_pairs, self_state.squeeze(dim =len(size)-1)
 
 # def mlp(input_dim, mlp_dims, last_relu=False):
 #     layers = []
