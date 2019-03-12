@@ -18,13 +18,13 @@ class NavRVO2Env_all(gym.Env):
     def __init__(self, task={}):
         super(NavRVO2Env_all, self).__init__()
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
-            shape=(4,), dtype=np.float32)
+            shape=(10,), dtype=np.float32)
         self.action_space = spaces.Box(low=-0.1, high=0.1,
             shape=(2,), dtype=np.float32)
 
         self._task = task
         self._goal = task.get('goal', np.zeros(2, dtype=np.float32))
-        self._state = np.zeros(4, dtype=np.float32)
+        self._state = np.zeros(10, dtype=np.float32)
         self.seed()
 
         self._num_ped = 4
@@ -145,7 +145,7 @@ class NavRVO2Env_all(gym.Env):
             
 
     def reset(self, env=True):
-        self._state = np.zeros(4, dtype=np.float32)
+        self._state = np.zeros(10, dtype=np.float32)
         self._ped_histories = []
         self._ped_states = self._default_ped_states
         return self._state
@@ -161,7 +161,7 @@ class NavRVO2Env_all(gym.Env):
         # Update robot's state
         # print(self._state[0:1], action)
         self._state[0:2] = self._state[0:2] + action
-        self._state[2:4] = [self._ped_states[0,0], self._ped_states[0,1]]
+        
 
         dx = self._state[0] - self._goal[0]
         dy = self._state[1] - self._goal[1]
@@ -171,11 +171,18 @@ class NavRVO2Env_all(gym.Env):
         self.update_ped_states()
         self.check_and_clip_ped_states() # ensure all agents are within the bounary: reset to default pos if necessary
         
+        # update self._state
+        self._state = np.append(self._state[:2], self._ped_states.reshape(2*self._num_ped,))
+        # self._state[2:4] = [self._ped_states[0,0], self._ped_states[0,1]]
+        
         # Calculate rewards
         reward = -np.sqrt(dx ** 2 + dy ** 2)
         safe_dist = 0.2
         weight = 0.2
         ped_dists = np.sqrt((self._ped_states[:,0] - self._state[0]) ** 2 + (self._ped_states[:,1] - self._state[1]) ** 2)
+
+
+
 
         for dist in ped_dists[ped_dists < safe_dist]:
             reward -= weight*(safe_dist - dist)
