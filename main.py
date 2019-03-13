@@ -145,7 +145,6 @@ def main(args):
 
         # print(episodes[0][1].observations.shape) # the valid episode of the first task
         # print("FINISHED the first batch of meta-learning")
-        # ewerfwe
 
 
 if __name__ == '__main__':
