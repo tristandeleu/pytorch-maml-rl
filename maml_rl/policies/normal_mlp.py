@@ -23,8 +23,12 @@ class NormalMLPPolicy(Policy):
 
         # Social Attention (w/o local map) Begin
         self.ped_num = 4
-        self.self_state_dim = 2 # 6   # Remember to replace if needed
-        self.ped_state_dim = 2
+
+        self.self_state_before_rotate = 6
+        self.ped_state_before_rotate = 5
+
+        self.self_state_dim = 3 # This is After rotate   # Remember to replace if needed
+        self.ped_state_dim = 6 # This is After rotate
         input_dim = self.self_state_dim + self.ped_state_dim # 13 # self_state + human_state  # Replace if needed!
         self.mlp1_dims = [150, 100]
         self.mlp2_dims = [100, 50]
@@ -65,10 +69,10 @@ class NormalMLPPolicy(Policy):
         self.min_log_std = math.log(min_std)
         self.num_layers = len(hidden_sizes) + 1
 
-        layer_sizes = (input_size,) + hidden_sizes
-        for i in range(1, self.num_layers):
-            self.add_module('layer{0}'.format(i), nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
-        self.mu = nn.Linear(layer_sizes[-1], output_size)
+        # layer_sizes = (input_size,) + hidden_sizes
+        # for i in range(1, self.num_layers):
+        #     self.add_module('layer{0}'.format(i), nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
+        # self.mu = nn.Linear(layer_sizes[-1], output_size)
 
         self.sigma = nn.Parameter(torch.Tensor(output_size))
         self.sigma.data.fill_(math.log(init_std))
@@ -81,21 +85,49 @@ class NormalMLPPolicy(Policy):
 
         # Social Attention (w/o local map) Begin
         
+        # ------------ Start manipulate input dimension ---------------------
+        # if len(size) == 3:
+        #     state = state.view(size[0], size[1], 1, 4)
+        # if len(size) == 2:
+        #     state = state.view(size[0], 1, 4)
+        # if len(size) == 1:
+        #     state = state.view(1, 4)
+
+        # state = state.float()
+        # size = state.shape # (100, 20, 5, 13)
+        # if len(size) == 4:
+        #     self_state = state[:, :, 0, :self.self_state_dim] # (100, 20, 6)
+        # elif len(size) == 3:
+        #     self_state = state[:, 0, :self.self_state_dim]
+        # elif len(size) == 2:
+        #     self_state = state[0, :self.self_state_dim]
+        # else:
+        #     sys.exit('Execution stopped: NN input is '+str(size))
+        # ------------ Finish manipulate input dimension ---------------------
 
                 # mlp1_output = self.mlp1(state.view((-1, size[2]))) # (traj# * - * -, hidden size) = (100 * 20 * 5, 100)
-        state, self_state = convert_to_robot_ped_pair(state.float(), self.self_state_dim, self.ped_state_dim, self.ped_num)
+        state_before_rotate = convert_to_robot_ped_pair(state.float(), self.self_state_before_rotate, self.ped_state_before_rotate, self.ped_num)
+        state = rotate(state_before_rotate) # state after rotate (100, 20, 5, 9)
+        self_state = state[..., 0, :self.self_state_dim]  
 
+        # print(" ")
+        # print(state.shape)
+        # print(" ")
         size = state.shape
 
         mlp1_output = state.view((-1, size[-1])) # this is actually input
-      
+       
+        # print(mlp1_output.shape)
+        # print(len(self.mlp1_dims)+1)
+        # rrr
 
         for i in range(1, len(self.mlp1_dims)+1):
             # print(" ")
             # print(mlp1_output.shape)
             mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
             mlp1_output = self.nonlinearity(mlp1_output)
-       
+        # print(mlp1_output.shape)
+        # rrr
         # mlp2_output = self.mlp2(mlp1_output) # (traj# * - * -, hidden size) = (100 * 20 * 5, 50)
         mlp2_output = mlp1_output # mlp2_output here is actually input
         layers = len(self.mlp2_dims)+1
@@ -131,7 +163,16 @@ class NormalMLPPolicy(Policy):
 
         score_sum = torch.sum(scores_exp, dim=len(size)-2, keepdim=True) # (100, 20, 1)
 
-    
+        # if len(score_sum.shape) == 3:
+        #     for i in range(score_sum.shape[0]):
+        #         for j in range(score_sum.shape[1]):
+        #             if score_sum[i,j,0].detach().numpy() == 0.0:
+        #                 score_sum[i,j,0] = 1.0
+        # elif len(score_sum.shape) == 2:
+        #     for i in range(score_sum.shape[0]):
+        #         if score_sum[i,0].detach().numpy() == 0.0:
+        #             score_sum[i,0] = 1.0
+
         # comment out weights here so that NN can ignore this differentiated Tensor
         weights = (scores_exp / (score_sum + 1e-5)).unsqueeze(len(size)-1) # (100, 20, 5, 1)
 
@@ -146,7 +187,11 @@ class NormalMLPPolicy(Policy):
         # weights = torch.ones(scores_exp.shape).unsqueeze(len(size)-1)
         weighted_feature = torch.sum(torch.mul(weights, features), dim=len(size)-2) # (100, 20, 50)
         # weighted_feature = torch.sum(features, dim=len(size)-2) # (100, 20, 50)
-      
+
+
+        # print("self_state: ",self_state.shape)
+        # print("weighted_feature: ",weighted_feature.shape)
+        # print(" ")
         # concatenate agent's state with global weighted humans' state
         joint_state = torch.cat([self_state, weighted_feature], dim=len(size)-2) # (100, 20, 56)
 
@@ -164,18 +209,59 @@ class NormalMLPPolicy(Policy):
         action_value = mlp3_output
 
 
-        # if params is None:
-        #     params = OrderedDict(self.named_parameters())
-        output = action_value
-        for i in range(1, self.num_layers):
-            output = F.linear(output, weight=params['layer{0}.weight'.format(i)], bias=params['layer{0}.bias'.format(i)])
-            output = self.nonlinearity(output)
-        mu = F.linear(output, weight=params['mu.weight'], bias=params['mu.bias'])
+
+        # -------- original MAML layers -------------------
+        # output = action_value
+        # for i in range(1, self.num_layers):
+        #     output = F.linear(output, weight=params['layer{0}.weight'.format(i)], bias=params['layer{0}.bias'.format(i)])
+        #     output = self.nonlinearity(output)
+        # mu = F.linear(output, weight=params['mu.weight'], bias=params['mu.bias'])
         scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))
+        # -------- FINISH MAML layers -------------------
 
 
 
-        return Normal(loc=mu, scale=scale)
+        # if any(np.isnan(np.ravel(weights.detach().numpy()))):
+        #     print(" torch.sum for weights shape: ", score_sum.shape)
+        #     print(score_sum.squeeze(len(size)-2))
+
+        #     print("weights: ", weights.squeeze(len(size)-1))
+        #     print("scores_exp: ", scores_exp)
+        #     # print()
+
+        #     cdcdcd
+
+
+
+
+        # if any(np.isnan(np.ravel(mu.detach().numpy()))):
+
+        #     print("  ")
+        #     print("mlp1_input: {}".format(state.view((-1, size[-1]))))
+
+        #     print("  ")
+        #     print("mlp1_layer1.weight: {}".format(params['mlp1_layer1.weight']))
+
+        #     print("  ")
+        #     print("mlp1_layer1.bias: {}".format(params['mlp1_layer1.bias']))
+
+        #     # for i in range(1, len(self.mlp1_dims)+1):
+        #     #     print('mlp1_layer{0}.weight'.format(i))
+        #     # mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
+        #     # mlp1_output = self.nonlinearity(mlp1_output)
+
+        #     # print("  ")
+        #     # print("mlp2_output {}".format(mlp2_output))
+
+        #     print("  ")
+        #     print("mu: {}".format(mu))
+        #     jdjdjdj
+
+        # print(np.ravel(mu.detach().numpy()))
+
+        # print(mu.shape)
+
+        return Normal(loc=action_value, scale=scale)
 
 # self_state_dim = 2
 # ped_state_dim = 2
@@ -200,7 +286,47 @@ def convert_to_robot_ped_pair(state, self_state_dim, ped_state_dim, ped_num):
         robot_ped_pair_list.append(torch.cat((self_state, ped_state_list[i]), dim=len(size)))
 
     robot_ped_pairs = torch.cat(robot_ped_pair_list, dim=len(size)-1)
-    return robot_ped_pairs, self_state.squeeze(dim =len(size)-1)
+    return robot_ped_pairs #, self_state.squeeze(dim =len(size)-1)
+
+
+def rotate(state):
+    """
+    Transform the coordinate to agent-centric.
+    Input state tensor is of size (batch_size, state_length)
+    """
+    # 'px', 'py', 'vx', 'vy', 'gx', 'gy', 'px1', 'py1', 'vx1', 'vy1', 'radius1'
+    #  0     1      2     3      4    5     6      7      8       9     10      
+
+    # print("rotate(state) input shape: ", state.shape) # [8, 4, 11]
+    # print(" ")
+    size = state.shape # (100, 20, 11) 
+    last_dim = len(size) - 1 # 3
+    dx = state[..., 4] - state[..., 0] # (100, 20)
+    dy = state[..., 5] - state[..., 1]
+    rot = torch.atan2(dy, dx) # (100, 20)
+
+    dg = torch.norm(torch.cat([dx.unsqueeze(dim = last_dim), dy.unsqueeze(dim = last_dim)], dim=last_dim), 2, dim=last_dim, keepdim=True) # (100, 20, 1)
+
+    vx = (state[..., 2] * torch.cos(rot) + state[..., 3] * torch.sin(rot)).unsqueeze(dim = last_dim) # (100, 20, 1)
+    vy = (state[..., 3] * torch.cos(rot) - state[..., 2] * torch.sin(rot)).unsqueeze(dim = last_dim)
+
+   
+    vx1 = (state[..., 8] * torch.cos(rot) + state[..., 9] * torch.sin(rot)).unsqueeze(dim = last_dim) # (100, 20, 1)
+    vy1 = (state[..., 9] * torch.cos(rot) - state[..., 8] * torch.sin(rot)).unsqueeze(dim = last_dim)
+
+    px1 = (state[..., 6] - state[..., 0]) * torch.cos(rot) + (state[..., 7] - state[..., 1]) * torch.sin(rot) # (100, 20)
+    px1 = px1.unsqueeze(dim = last_dim) # (100, 20, 1)
+
+    py1 = (state[..., 7] - state[..., 1]) * torch.cos(rot) - (state[..., 6] - state[..., 0]) * torch.sin(rot)
+    py1 = py1.unsqueeze(dim = last_dim)
+    radius1 = state[..., 10].unsqueeze(dim = last_dim)
+
+    da = torch.norm(torch.cat([(state[..., 0] - state[..., 6]).unsqueeze(dim = last_dim), (state[..., 1] - state[..., 7]).
+                              unsqueeze(dim = last_dim)], dim=last_dim), 2, dim=last_dim, keepdim=True) # (100, 20, 1)
+    new_state = torch.cat([dg, vx, vy, px1, py1, vx1, vy1, radius1, da], dim=last_dim)
+    return new_state # (100, 20, 9) 
+
+
 
 # def mlp(input_dim, mlp_dims, last_relu=False):
 #     layers = []
