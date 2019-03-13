@@ -26,10 +26,11 @@ def time_elapsed(elapsed_seconds):
     return  ', '.join('{} {}'.format(value, name) for name, value in periods if value)
 
 def main(args):
-    print(args)
+
     continuous_actions = (args.env_name in ['AntVel-v1', 'AntDir-v1',
         'AntPos-v0', 'HalfCheetahVel-v1', 'HalfCheetahDir-v1',
         '2DNavigation-v0', 'RVONavigation-v0', 'RVONavigationAll-v0'])
+
     assert continuous_actions == True
 
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
@@ -46,6 +47,13 @@ def main(args):
 
     sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
         num_workers=args.num_workers)
+    
+    # print(sampler.envs.observation_space.shape)
+    # print(sampler.envs.action_space.shape)
+
+    # eewfe
+
+
     if continuous_actions:
         policy = NormalMLPPolicy(
             int(np.prod(sampler.envs.observation_space.shape)),
@@ -60,12 +68,15 @@ def main(args):
         int(np.prod(sampler.envs.observation_space.shape)))
 
 
-    # Loading policy
+
+
+
+
     if args.resume_training:
-        saved_policy_file = os.path.join('./saved_policy/maml-2DNavigation-dir', 'policy-760.pt')
-        if os.path.isfile(saved_policy_file):
+        saved_policy_path = os.path.join(save_folder, 'policy-760.pt')
+        if os.path.isfile(saved_policy_path):
             print('Loading a saved policy')
-            policy_info = torch.load(saved_policy_file, map_location=lambda storage, loc: storage)
+            policy_info = torch.load(saved_policy_path)
             policy.load_state_dict(policy_info)
         else:
             sys.exit("The requested policy does not exist for loading")
@@ -75,8 +86,6 @@ def main(args):
         fast_lr=args.fast_lr, tau=args.tau, device=args.device)
 
     start_time = time.time()
-    print('Started training....')
-    
     for batch in range(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
         episodes = metalearner.sample(tasks, first_order=args.first_order)
@@ -84,6 +93,11 @@ def main(args):
         metalearner.step(episodes, max_kl=args.max_kl, cg_iters=args.cg_iters,
             cg_damping=args.cg_damping, ls_max_steps=args.ls_max_steps,
             ls_backtrack_ratio=args.ls_backtrack_ratio)
+
+        # print("observations shape: ")
+        # print(episodes[0][1].observations.shape)
+
+        # ewerw
 
         # Tensorboard
         writer.add_scalar('total_rewards/before_update',
@@ -97,16 +111,16 @@ def main(args):
             with open(os.path.join(save_folder,'policy-{0}.pt'.format(batch)), 'wb') as f:
                 torch.save(policy.state_dict(), f)
 
-        if batch == 0:
+        if batch % 30 == 0:
             with open(os.path.join(log_traj_folder, 'train_episodes_observ_'+str(batch)+'.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.cpu().numpy() for ep, _ in episodes], f)
             with open(os.path.join(log_traj_folder, 'valid_episodes_observ_'+str(batch)+'.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.cpu().numpy() for _, ep in episodes], f)
 
-            with open(os.path.join(log_traj_folder, 'train_episodes_ped_state_'+str(batch)+'.pkl'), 'wb') as f: 
-                pickle.dump([ep.hid_observations.cpu().numpy() for ep, _ in episodes], f)
-            with open(os.path.join(log_traj_folder, 'valid_episodes_ped_state_'+str(batch)+'.pkl'), 'wb') as f: 
-                pickle.dump([ep.hid_observations.cpu().numpy() for _, ep in episodes], f)
+            # with open(os.path.join(log_traj_folder, 'train_episodes_ped_state_'+str(batch)+'.pkl'), 'wb') as f: 
+            #     pickle.dump([ep.hid_observations.cpu().numpy() for ep, _ in episodes], f)
+            # with open(os.path.join(log_traj_folder, 'valid_episodes_ped_state_'+str(batch)+'.pkl'), 'wb') as f: 
+            #     pickle.dump([ep.hid_observations.cpu().numpy() for _, ep in episodes], f)
             # save tasks
             # a sample task list of 2: [{'goal': array([0.0209588 , 0.15981938])}, {'goal': array([0.45034602, 0.17282322])}]
             with open(os.path.join(log_traj_folder, 'tasks_'+str(batch)+'.pkl'), 'wb') as f: 
@@ -119,10 +133,10 @@ def main(args):
             with open(os.path.join(log_traj_folder, 'latest_valid_episodes_observ.pkl'), 'wb') as f: 
                 pickle.dump([ep.observations.cpu().numpy() for _, ep in episodes], f)
 
-            with open(os.path.join(log_traj_folder, 'latest_train_episodes_ped_state.pkl'), 'wb') as f: 
-                pickle.dump([ep.hid_observations.cpu().numpy() for ep, _ in episodes], f)
-            with open(os.path.join(log_traj_folder, 'latest_valid_episodes_ped_state.pkl'), 'wb') as f: 
-                pickle.dump([ep.hid_observations.cpu().numpy() for _, ep in episodes], f)
+            # with open(os.path.join(log_traj_folder, 'latest_train_episodes_ped_state.pkl'), 'wb') as f: 
+            #     pickle.dump([ep.hid_observations.cpu().numpy() for ep, _ in episodes], f)
+            # with open(os.path.join(log_traj_folder, 'latest_valid_episodes_ped_state.pkl'), 'wb') as f: 
+            #     pickle.dump([ep.hid_observations.cpu().numpy() for _, ep in episodes], f)
 
             with open(os.path.join(log_traj_folder, 'latest_tasks.pkl'), 'wb') as f: 
                 pickle.dump(tasks, f)
@@ -143,9 +157,9 @@ if __name__ == '__main__':
         'Model-Agnostic Meta-Learning (MAML)')
 
     # General
-    parser.add_argument('--env-name', type=str, default='2DNavigation-v0',
+    parser.add_argument('--env-name', type=str, default='RVONavigationAll-v0',
         help='name of the environment')
-    parser.add_argument('--gamma', type=float, default=0.95,
+    parser.add_argument('--gamma', type=float, default=0.99,
         help='value of the discount factor gamma')
     parser.add_argument('--tau', type=float, default=1.0,
         help='value of the discount factor for GAE')
@@ -159,15 +173,15 @@ if __name__ == '__main__':
         help='number of hidden layers')
 
     # Task-specific
-    parser.add_argument('--fast-batch-size', type=int, default=15,
+    parser.add_argument('--fast-batch-size', type=int, default=20,
         help='batch size for each individual task')
-    parser.add_argument('--fast-lr', type=float, default=0.5,
+    parser.add_argument('--fast-lr', type=float, default=0.05,
         help='learning rate for the 1-step gradient update of MAML')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=200,
+    parser.add_argument('--num-batches', type=int, default=1000,
         help='number of batches')
-    parser.add_argument('--meta-batch-size', type=int, default=30,
+    parser.add_argument('--meta-batch-size', type=int, default=25,
         help='number of tasks per batch')
     parser.add_argument('--max-kl', type=float, default=1e-2,
         help='maximum value for the KL constraint in TRPO')
@@ -181,22 +195,23 @@ if __name__ == '__main__':
         help='maximum number of iterations for line search')
 
     # Miscellaneous
-    parser.add_argument('--output-folder', type=str, default='maml-RVONavigation-dir',
+    parser.add_argument('--output-folder', type=str, default='maml-2DNavigation-dir',
         help='name of the output folder')
-    parser.add_argument('--output-traj-folder', type=str, default='RVONavigation-traj-dir',
+    parser.add_argument('--output-traj-folder', type=str, default='2DNavigation-traj-dir',
         help='name of the output trajectory folder')
-    parser.add_argument('--save-every', type=int, default=10,     
+    parser.add_argument('--save_every', type=int, default=20,     
                         help='save frequency')
-    parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
+    parser.add_argument('--num-workers', type=int, default=8,
         help='number of workers for trajectories sampling')
-    parser.add_argument('--device', type=str, default='cpu',
+    parser.add_argument('--device', type=str, default='cuda',
         help='set the device (cpu or cuda)')
-    parser.add_argument('--resume-training', type=bool, default=False,
+    parser.add_argument('--resume_training', type=bool, default=False,
         help='if want to resume training from a saved policy')
 
     args = parser.parse_args()
-
-    # print("--num-workers: mp.cpu_count() - 1 = {}".format(mp.cpu_count() - 1))
+    print(" ")
+    print("--fast-lr: {}".format(args.fast_lr))
+    print(" ")
     # on my laptop: mp.cpu_count() - 1 = 3
 
     # Create logs and saves folder if they don't exist
