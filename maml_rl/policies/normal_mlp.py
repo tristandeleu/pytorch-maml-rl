@@ -69,11 +69,7 @@ class NormalMLPPolicy(Policy):
         self.min_log_std = math.log(min_std)
         self.num_layers = len(hidden_sizes) + 1
 
-        # layer_sizes = (input_size,) + hidden_sizes
-        # for i in range(1, self.num_layers):
-        #     self.add_module('layer{0}'.format(i), nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
-        # self.mu = nn.Linear(layer_sizes[-1], output_size)
-
+      
         self.sigma = nn.Parameter(torch.Tensor(output_size))
         self.sigma.data.fill_(math.log(init_std))
         self.apply(weight_init)
@@ -85,25 +81,7 @@ class NormalMLPPolicy(Policy):
 
         # Social Attention (w/o local map) Begin
         
-        # ------------ Start manipulate input dimension ---------------------
-        # if len(size) == 3:
-        #     state = state.view(size[0], size[1], 1, 4)
-        # if len(size) == 2:
-        #     state = state.view(size[0], 1, 4)
-        # if len(size) == 1:
-        #     state = state.view(1, 4)
-
-        # state = state.float()
-        # size = state.shape # (100, 20, 5, 13)
-        # if len(size) == 4:
-        #     self_state = state[:, :, 0, :self.self_state_dim] # (100, 20, 6)
-        # elif len(size) == 3:
-        #     self_state = state[:, 0, :self.self_state_dim]
-        # elif len(size) == 2:
-        #     self_state = state[0, :self.self_state_dim]
-        # else:
-        #     sys.exit('Execution stopped: NN input is '+str(size))
-        # ------------ Finish manipulate input dimension ---------------------
+ 
 
                 # mlp1_output = self.mlp1(state.view((-1, size[2]))) # (traj# * - * -, hidden size) = (100 * 20 * 5, 100)
         state_before_rotate = convert_to_robot_ped_pair(state.float(), self.self_state_before_rotate, self.ped_state_before_rotate, self.ped_num)
@@ -126,8 +104,7 @@ class NormalMLPPolicy(Policy):
             # print(mlp1_output.shape)
             mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
             mlp1_output = self.nonlinearity(mlp1_output)
-        # print(mlp1_output.shape)
-        # rrr
+       
         # mlp2_output = self.mlp2(mlp1_output) # (traj# * - * -, hidden size) = (100 * 20 * 5, 50)
         mlp2_output = mlp1_output # mlp2_output here is actually input
         layers = len(self.mlp2_dims)+1
@@ -163,15 +140,7 @@ class NormalMLPPolicy(Policy):
 
         score_sum = torch.sum(scores_exp, dim=len(size)-2, keepdim=True) # (100, 20, 1)
 
-        # if len(score_sum.shape) == 3:
-        #     for i in range(score_sum.shape[0]):
-        #         for j in range(score_sum.shape[1]):
-        #             if score_sum[i,j,0].detach().numpy() == 0.0:
-        #                 score_sum[i,j,0] = 1.0
-        # elif len(score_sum.shape) == 2:
-        #     for i in range(score_sum.shape[0]):
-        #         if score_sum[i,0].detach().numpy() == 0.0:
-        #             score_sum[i,0] = 1.0
+       
 
         # comment out weights here so that NN can ignore this differentiated Tensor
         weights = (scores_exp / (score_sum + 1e-5)).unsqueeze(len(size)-1) # (100, 20, 5, 1)
@@ -189,9 +158,7 @@ class NormalMLPPolicy(Policy):
         # weighted_feature = torch.sum(features, dim=len(size)-2) # (100, 20, 50)
 
 
-        # print("self_state: ",self_state.shape)
-        # print("weighted_feature: ",weighted_feature.shape)
-        # print(" ")
+      
         # concatenate agent's state with global weighted humans' state
         joint_state = torch.cat([self_state, weighted_feature], dim=len(size)-2) # (100, 20, 56)
 
@@ -221,45 +188,6 @@ class NormalMLPPolicy(Policy):
 
 
 
-        # if any(np.isnan(np.ravel(weights.detach().numpy()))):
-        #     print(" torch.sum for weights shape: ", score_sum.shape)
-        #     print(score_sum.squeeze(len(size)-2))
-
-        #     print("weights: ", weights.squeeze(len(size)-1))
-        #     print("scores_exp: ", scores_exp)
-        #     # print()
-
-        #     cdcdcd
-
-
-
-
-        # if any(np.isnan(np.ravel(mu.detach().numpy()))):
-
-        #     print("  ")
-        #     print("mlp1_input: {}".format(state.view((-1, size[-1]))))
-
-        #     print("  ")
-        #     print("mlp1_layer1.weight: {}".format(params['mlp1_layer1.weight']))
-
-        #     print("  ")
-        #     print("mlp1_layer1.bias: {}".format(params['mlp1_layer1.bias']))
-
-        #     # for i in range(1, len(self.mlp1_dims)+1):
-        #     #     print('mlp1_layer{0}.weight'.format(i))
-        #     # mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
-        #     # mlp1_output = self.nonlinearity(mlp1_output)
-
-        #     # print("  ")
-        #     # print("mlp2_output {}".format(mlp2_output))
-
-        #     print("  ")
-        #     print("mu: {}".format(mu))
-        #     jdjdjdj
-
-        # print(np.ravel(mu.detach().numpy()))
-
-        # print(mu.shape)
 
         return Normal(loc=action_value, scale=scale)
 
