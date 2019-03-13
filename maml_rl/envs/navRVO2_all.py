@@ -9,34 +9,55 @@ import rvo2
 class NavRVO2Env_all(gym.Env):
     """
     What's new for the new environment:
-    Added 4 pedestrians initialized to be at 4 corners ([-0.8,-0.8], [0.8,-0.8], [0.8,0.8], [-0.8,0.8]) 
-    of a rectangle centering at the origin. 2 pedestrians at each corner. They walk almostly 
+    Added 4 pedestrians initialized to be at 4 corners ([-0.5,-0.5], [0.5,-0.5], [0.5,0.5], [-0.5,0.5]) 
+    of a rectangle centering at the origin. 1 pedestrians at each corner. They walk almostly 
     diagonally towards the other side (specific direction is upon randomness). After they exit the rectangle, 
     they will be initialized at the corners again. 
+
+    robot state: 
+    'px', 'py', 'vx', 'vy', 'gx', 'gy'
+     0     1      2     3     4     5    
+
+    pedestrian state: 
+    'px1', 'py1', 'vx1', 'vy1', 'radius1'
+      6      7      8       9     10    
     """
     
     def __init__(self, task={}):
         super(NavRVO2Env_all, self).__init__()
+
+        self._num_ped = 4
+        self._num_agent = self._num_ped + 1 # ped_num + robot_num
+        self._state_dim = 6 + self._num_ped * 5 # robot_state_dim + ped_num * ped_state_dim = 6 + 4 * 5 = 26
+
+
+
+
+
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
-            shape=(10,), dtype=np.float32)
+            shape=(self._state_dim,), dtype=np.float32)
         self.action_space = spaces.Box(low=-0.1, high=0.1,
             shape=(2,), dtype=np.float32)
 
+        
         self._task = task
-        self._goal = task.get('goal', np.zeros(2, dtype=np.float32))
-        self._state = np.zeros(10, dtype=np.float32)
+        self._goal = task.get('goal', np.array([0.5, 0.5], dtype=np.float32))
+        self._default_robot_state = np.array([-0.45, -0.45, 0., 0., self._goal[0], self._goal[1]], dtype=np.float32)
+        self._state = self._default_robot_state.copy()
         self.seed()
 
-        self._num_ped = 4
         # self._ped_speed = task.get('ped_speed', np.float32(0))
+        self._ped_radius = 0.1
         self._ped_speed = 0.1
         self._ped_direc = task.get('ped_direc', np.zeros(self._num_ped, dtype=np.float32))
         self._ped_list = []
         # self._n_pedestrian = 8 # or use np.random.randint but needs to adjust _ped_states
-        self._entering_corner = np.float32(1.)
+        self._entering_corner = np.float32(0.65)
         self._default_ped_states = self._entering_corner * np.array([[-1,-1], [1,-1], [1,1], [-1,1]])
         self._ped_states = self._default_ped_states.copy()
-        self._ped_histories = []
+        # self._ped_histories = []
+
+        # self._state = np.append(self._state[:2], self._ped_states.reshape(2*self._num_ped,))
         
         # Initializing RVO2 simulator
         timeStep = 1.
@@ -44,7 +65,7 @@ class NavRVO2Env_all(gym.Env):
         maxNeighbors = 5
         timeHorizon = 1.0
         timeHorizonObst = timeHorizon
-        radius = 0.05
+        radius = 0.1 # 0.05  is this the ped radius? shound't it be at least the safety distance
         maxSpeed = 1.2 * self._ped_speed
         
         self._simulator = rvo2.PyRVOSimulator(timeStep, neighborDist, maxNeighbors, timeHorizon, timeHorizonObst, radius, maxSpeed)
@@ -54,6 +75,7 @@ class NavRVO2Env_all(gym.Env):
             vx = self._ped_speed * np.cos(self._ped_direc[i])
             vy = self._ped_speed * np.sin(self._ped_direc[i])
             self._simulator.setAgentPrefVelocity(ai, (vx, vy))
+            self._state = np.append(self._state, np.append(self._default_ped_states[i,:], [vx, vy, self._ped_radius]))
         # print('navRVO2: Initialized environment with %f RVO2-agents.', self._num_ped)
 
     def check_and_clip_ped_states(self):
@@ -91,7 +113,7 @@ class NavRVO2Env_all(gym.Env):
     def sample_tasks(self, num_tasks):
         # tasks includes various goal_pos and ped_direcs
         # goals = self.np_random.uniform(-0.5, 0.5, size=(num_tasks, 2))
-        goals = self.np_random.uniform(0.5, 0.5, size=(num_tasks, 2))
+        goals = self.np_random.uniform(0.3, 0.5, size=(num_tasks, 2))
 
         ped_speeds = self.np_random.uniform(0.1, 0.1, size=num_tasks)
 
@@ -145,9 +167,21 @@ class NavRVO2Env_all(gym.Env):
             
 
     def reset(self, env=True):
-        self._state = np.zeros(10, dtype=np.float32)
-        self._ped_histories = []
-        self._ped_states = self._default_ped_states
+        self._state = self._default_robot_state.copy()
+        # self._ped_histories = []
+        self._ped_states = self._default_ped_states.copy()
+
+        try:
+            ped_direc = task.get('ped_direc', np.zeros(self._num_ped, dtype=np.float32))
+        except:
+            ped_direc = np.zeros(self._num_ped, dtype=np.float32)
+
+
+        for i in range(self._num_ped):
+            vx = self._ped_speed * np.cos(ped_direc[i])
+            vy = self._ped_speed * np.sin(ped_direc[i])
+            self._state = np.append(self._state, np.append(self._default_ped_states[i], [vx, vy, self._ped_radius]))
+
         return self._state
 
     def step(self, action):
@@ -161,6 +195,8 @@ class NavRVO2Env_all(gym.Env):
         # Update robot's state
         # print(self._state[0:1], action)
         self._state[0:2] = self._state[0:2] + action
+        self._state[3:5] = action
+        self._state[6:8] = self._goal
         
 
         dx = self._state[0] - self._goal[0]
@@ -172,24 +208,36 @@ class NavRVO2Env_all(gym.Env):
         self.check_and_clip_ped_states() # ensure all agents are within the bounary: reset to default pos if necessary
         
         # update self._state
-        self._state = np.append(self._state[:2], self._ped_states.reshape(2*self._num_ped,))
+        for i in range(self._num_ped):
+            ai_velocity = self._simulator.getAgentVelocity(self._ped_list[i])
+            self._state[6+i*5: 6+i*5+4] = np.append(self._ped_states[i,:], [ai_velocity[0], ai_velocity[1]])
+
+
+        # self._state = np.append(self._state[:2], self._ped_states.reshape(2*self._num_ped,))
         # self._state[2:4] = [self._ped_states[0,0], self._ped_states[0,1]]
         
         # Calculate rewards
         reward = -np.sqrt(dx ** 2 + dy ** 2)
-        safe_dist = 0.2
-        weight = 0.2
-        ped_dists = np.sqrt((self._ped_states[:,0] - self._state[0]) ** 2 + (self._ped_states[:,1] - self._state[1]) ** 2)
+        # safe_dist = 0.2
+        weight = 1.5
+        # ped_dists = np.sqrt((self._ped_states[:,0] - self._state[0]) ** 2 + (self._ped_states[:,1] - self._state[1]) ** 2)
+
+
+        for i in range(self._num_ped):
+            dist_ped_i = np.sqrt((self._ped_states[i,0] - self._state[0]) ** 2 + (self._ped_states[i,1] - self._state[1]) ** 2)
+            if (dist_ped_i < self._ped_radius): # assume safe distance is within a radius of 0.1
+                reward = reward + (dist_ped_i*1.0 - self._ped_radius)*weight
 
 
 
 
-        for dist in ped_dists[ped_dists < safe_dist]:
-            reward -= weight*(safe_dist - dist)
+
+        # for dist in ped_dists[ped_dists < safe_dist]:
+        #     reward -= weight*(safe_dist - dist)
 
         done = ((np.abs(dx) < 0.01) and (np.abs(dy) < 0.01))
-        if done:
-            reward += 0.5;
+        # if done:
+        #     reward += 0.5;
         # self._ped_histories = self._ped_histories.append(self._ped_states[0])
 
         return self._state, reward, done, self._task
