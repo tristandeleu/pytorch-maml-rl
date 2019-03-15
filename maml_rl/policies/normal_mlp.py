@@ -21,12 +21,14 @@ class NormalMLPPolicy(Policy):
             input_size=input_size, output_size=output_size)
 
 
-        # Social Attention (w/o local map) Begin
-        self.ped_num = 4
-
+        
+        # ---------------   REMEMBER to make changes if needed ------------------------
+        self.ped_num = 8
         self.self_state_before_rotate = 6
         self.ped_state_before_rotate = 5
-
+        # ---------------   Finish making changes ------------------------
+        
+        # Social Attention (w/o local map) Begin
         self.self_state_dim = 3 # This is After rotate   # Remember to replace if needed
         self.ped_state_dim = 6 # This is After rotate
         input_dim = self.self_state_dim + self.ped_state_dim # 13 # self_state + human_state  # Replace if needed!
@@ -40,19 +42,15 @@ class NormalMLPPolicy(Policy):
         for i in range(1, len(mlp1_layer_sizes)):
             self.add_module('mlp1_layer{0}'.format(i), nn.Linear(mlp1_layer_sizes[i - 1], mlp1_layer_sizes[i]))
    
-
-
         # self.mlp2 = mlp(mlp1_dims[-1], mlp2_dims)
         mlp2_layer_sizes = [self.mlp1_dims[-1]] + self.mlp2_dims
         for i in range(1, len(mlp2_layer_sizes)):
             self.add_module('mlp2_layer{0}'.format(i), nn.Linear(mlp2_layer_sizes[i - 1], mlp2_layer_sizes[i]))
 
-
         # self.attention = mlp(mlp1_dims[-1], attention_dims)
         attention_layer_size = [self.mlp1_dims[-1]] + self.attention_dims
         for i in range(1, len(attention_layer_size)):
             self.add_module('attention{0}'.format(i), nn.Linear(attention_layer_size[i - 1], attention_layer_size[i]))
-
 
         mlp3_input_dim = self.mlp2_dims[-1] + self.self_state_dim
         # self.mlp3 = mlp(mlp3_input_dim, mlp3_dims)
@@ -63,13 +61,13 @@ class NormalMLPPolicy(Policy):
         # Social Attention End
         input_size = self.mlp3_dims[-1]
 
-
+        # The parameters below are not used and can be deleted
         self.hidden_sizes = hidden_sizes
         self.nonlinearity = nonlinearity
         self.min_log_std = math.log(min_std)
         self.num_layers = len(hidden_sizes) + 1
-
-      
+        
+        # normalize the output action
         self.sigma = nn.Parameter(torch.Tensor(output_size))
         self.sigma.data.fill_(math.log(init_std))
         self.apply(weight_init)
@@ -80,31 +78,20 @@ class NormalMLPPolicy(Policy):
             params = OrderedDict(self.named_parameters())
 
         # Social Attention (w/o local map) Begin
-        
- 
 
                 # mlp1_output = self.mlp1(state.view((-1, size[2]))) # (traj# * - * -, hidden size) = (100 * 20 * 5, 100)
         state_before_rotate = convert_to_robot_ped_pair(state.float(), self.self_state_before_rotate, self.ped_state_before_rotate, self.ped_num)
-        state = rotate(state_before_rotate) # state after rotate (100, 20, 5, 9)
+        state, rot = rotate(state_before_rotate) # state after rotate (100, 20, 5, 9)
         self_state = state[..., 0, :self.self_state_dim]  
 
-        # print(" ")
-        # print(state.shape)
-        # print(" ")
         size = state.shape
 
         mlp1_output = state.view((-1, size[-1])) # this is actually input
-       
-        # print(mlp1_output.shape)
-        # print(len(self.mlp1_dims)+1)
-        # rrr
 
         for i in range(1, len(self.mlp1_dims)+1):
-            # print(" ")
-            # print(mlp1_output.shape)
             mlp1_output = F.linear(mlp1_output, weight=params['mlp1_layer{0}.weight'.format(i)], bias=params['mlp1_layer{0}.bias'.format(i)])
             mlp1_output = self.nonlinearity(mlp1_output)
-       
+
         # mlp2_output = self.mlp2(mlp1_output) # (traj# * - * -, hidden size) = (100 * 20 * 5, 50)
         mlp2_output = mlp1_output # mlp2_output here is actually input
         layers = len(self.mlp2_dims)+1
@@ -112,8 +99,7 @@ class NormalMLPPolicy(Policy):
             mlp2_output = F.linear(mlp2_output, weight=params['mlp2_layer{0}.weight'.format(i)], bias=params['mlp2_layer{0}.bias'.format(i)])
             if i != layers - 1:
                 mlp2_output = self.nonlinearity(mlp2_output)
-            
-
+           
   
         attention_output = mlp1_output # (100 * 20 * 5, 100)
         layers = len(self.attention_dims)+1
@@ -132,16 +118,12 @@ class NormalMLPPolicy(Policy):
         else:
             sys.exit('Execution stopped: Something wrong with score size '+str(scores.shape))
 
-        # masked softmax
-        # weights = softmax(scores, dim=1).unsqueeze(2)
-
-
+      
         scores_exp = torch.exp(scores) * (scores != 0).float() # (100, 20, 5)
 
         score_sum = torch.sum(scores_exp, dim=len(size)-2, keepdim=True) # (100, 20, 1)
 
-       
-
+    
         # comment out weights here so that NN can ignore this differentiated Tensor
         weights = (scores_exp / (score_sum + 1e-5)).unsqueeze(len(size)-1) # (100, 20, 5, 1)
 
@@ -174,8 +156,15 @@ class NormalMLPPolicy(Policy):
 
         # Social Attention End
         action_value = mlp3_output
+        # print("prior action_value: ", action_value.shape)
 
+        # rotate back to original coordinates
+        rot = rot[...,0]
+        action_x = (action_value[..., 0] * torch.cos(-rot) + action_value[..., 1] * torch.sin(-rot)).unsqueeze(dim = len(size)-2) # (100, 20, 1)
+        action_y = (action_value[..., 1] * torch.cos(-rot) - action_value[..., 0] * torch.sin(-rot)).unsqueeze(dim = len(size)-2)
+        action_value = torch.cat([action_x, action_y], dim=len(size)-2)
 
+        
 
         # -------- original MAML layers -------------------
         # output = action_value
@@ -185,8 +174,6 @@ class NormalMLPPolicy(Policy):
         # mu = F.linear(output, weight=params['mu.weight'], bias=params['mu.bias'])
         scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))
         # -------- FINISH MAML layers -------------------
-
-
 
 
         return Normal(loc=action_value, scale=scale)
@@ -252,7 +239,8 @@ def rotate(state):
     da = torch.norm(torch.cat([(state[..., 0] - state[..., 6]).unsqueeze(dim = last_dim), (state[..., 1] - state[..., 7]).
                               unsqueeze(dim = last_dim)], dim=last_dim), 2, dim=last_dim, keepdim=True) # (100, 20, 1)
     new_state = torch.cat([dg, vx, vy, px1, py1, vx1, vy1, radius1, da], dim=last_dim)
-    return new_state # (100, 20, 9) 
+
+    return new_state, rot # (100, 20, 9) 
 
 
 
