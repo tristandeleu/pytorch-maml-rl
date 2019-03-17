@@ -45,10 +45,9 @@ def get_traj(folder_path, traj_ind, num_grad):
 
 	trajs_file_name = 'test_episodes_grad'+str(num_grad)+'.pkl'
 	trajs = pickle.load(open(folder_path + trajs_file_name, "rb" ))
-	traj = np.squeeze(trajs[0][:,traj_ind, :])
 
-	peds_file_name = 'test_peds_grad'+str(num_grad)+'.pkl'
-	peds = pickle.load(open(folder_path + peds_file_name, "rb" ))
+	traj = np.squeeze(trajs[0][:,traj_ind, 0:1])
+
 	ped = np.squeeze(peds[0][:,traj_ind, :])
 
 	return traj, ped
@@ -56,7 +55,7 @@ def get_traj(folder_path, traj_ind, num_grad):
 def main():
 	parser = argparse.ArgumentParser(description='MAML 2DNavigation plot making')
 	parser.add_argument('--task_ind', type=int, default=10, help='which task to be plotted')
-	parser.add_argument('--traj_ind', type=int, default=10, help='which trajectory to be plotted')
+	parser.add_argument('--traj_ind', type=int, default=0, help='which trajectory to be plotted')
 	# parser.add_argument('--x_scaling_factor', type=float, default=0.36883, help='true x = current_x * x_scaling_factor')
 	# parser.add_argument('--y_scaling_factor', type=float, default=0.459005, help='true y = current_y * y_scaling_factor')
 	parser.add_argument('--plot-type', type=str, default='train', help='train or test')

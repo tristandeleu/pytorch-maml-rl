@@ -30,14 +30,24 @@ class BatchSampler(object):
             self.queue.put(None)
         observations, batch_ids = self.envs.reset()
         dones = [False]
+
+        # count = -1
         while (not all(dones)) or (not self.queue.empty()):
+            # count = count + 1
             with torch.no_grad():
                 observations_tensor = torch.from_numpy(observations).to(device=device)
                 actions_tensor = policy(observations_tensor, params=params).sample()
                 actions = actions_tensor.cpu().numpy()
             new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
+            # if count <2:
+                # print("\ndones: ", dones)
+                # print("info: ", new_batch_ids)
+                # # print(new_observations.shape)
+                # print("robot position: ", new_observations[:,:2])
+                # print("goal: ", new_observations[:, 4:6])
 
             new_hid_observations = self.envs.get_peds()
+            # new_hid_observations = np.array([[-1,-1], [1,-1], [1,1], [-1,1]])
 
             episodes.append(observations, new_hid_observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids

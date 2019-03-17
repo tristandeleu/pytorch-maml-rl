@@ -106,7 +106,7 @@ class MetaLearner(object):
         """Sample trajectories for a single task with at most n_grads
         """
         test_episodes = []
-        # self.sampler.reset_task(task)
+        self.sampler.reset_task(task)
         episodes_0 = self.sampler.sample(self.policy, gamma=self.gamma, device=self.device) 
         test_episodes.append((0, episodes_0))
 
@@ -115,6 +115,7 @@ class MetaLearner(object):
             # print("loss = ", self.inner_loss(episodes_prev))
             params = self.adapt(episodes_prev, first_order=first_order)
             episodes_i = self.sampler.sample(self.policy, params=params, gamma=self.gamma, device=self.device)
+            # print("\nlen of epoch", episodes_i.observations.shape)
             test_episodes.append((i+1, episodes_i))
 
         return test_episodes
@@ -194,7 +195,7 @@ class MetaLearner(object):
                 torch.mean(torch.stack(kls, dim=0)), pis)
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
-             ls_max_steps=10, ls_backtrack_ratio=0.5):
+             ls_max_steps=15, ls_backtrack_ratio=0.5):
         """Meta-optimization step (ie. update of the initial parameters), based 
         on Trust Region Policy Optimization (TRPO, [4]).
         """

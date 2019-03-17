@@ -57,7 +57,8 @@ class BatchEpisodes(object):
     @property
     def rewards(self):
         if self._rewards is None:
-            rewards = np.zeros((len(self), self.batch_size), dtype=np.float32)
+            reward_shape = self._rewards_list[0][0].shape
+            rewards = np.zeros((len(self), self.batch_size) + reward_shape, dtype=np.float32)
             for i in range(self.batch_size):
                 length = len(self._rewards_list[i])
                 rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
@@ -69,7 +70,7 @@ class BatchEpisodes(object):
         if self._returns is None:
             return_ = np.zeros(self.batch_size, dtype=np.float32)
             returns = np.zeros((len(self), self.batch_size), dtype=np.float32)
-            rewards = self.rewards.cpu().numpy()
+            rewards = self.rewards[...,0].cpu().numpy()
             mask = self.mask.cpu().numpy()
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + rewards[i] * mask[i]
@@ -93,7 +94,9 @@ class BatchEpisodes(object):
         values = values.squeeze(2).detach()
         values = F.pad(values * self.mask, (0, 0, 0, 1))
 
-        deltas = self.rewards + self.gamma * values[1:] - values[:-1]
+        # print("\ngae self.rewards shape: ", self.rewards.shape)
+
+        deltas = self.rewards[...,0] + self.gamma * values[1:] - values[:-1]
         advantages = torch.zeros_like(deltas).float()
         gae = torch.zeros_like(deltas[0]).float()
         for i in range(len(self) - 1, -1, -1):

@@ -23,15 +23,15 @@ class NormalMLPPolicy(Policy):
 
         
         # ---------------   REMEMBER to make changes if needed ------------------------
-        self.ped_num = 8
-        self.self_state_before_rotate = 6
-        self.ped_state_before_rotate = 5
+        self.ped_num = 4
+        self.robot_state_before_rotate = 6
+        self.ped_state_before_rotate = 4
         # ---------------   Finish making changes ------------------------
         
         # Social Attention (w/o local map) Begin
-        self.self_state_dim = 3 # This is After rotate   # Remember to replace if needed
-        self.ped_state_dim = 6 # This is After rotate
-        input_dim = self.self_state_dim + self.ped_state_dim # 13 # self_state + human_state  # Replace if needed!
+        self.robot_state_dim = 3 # This is After rotate   # Remember to replace if needed
+        self.ped_state_dim = 5 # This is After rotate
+        input_dim = self.robot_state_dim + self.ped_state_dim # 13 # robot_state + human_state  # Replace if needed!
         self.mlp1_dims = [150, 100]
         self.mlp2_dims = [100, 50]
         self.attention_dims = [100, 100, 1] # one score for one human
@@ -52,7 +52,7 @@ class NormalMLPPolicy(Policy):
         for i in range(1, len(attention_layer_size)):
             self.add_module('attention{0}'.format(i), nn.Linear(attention_layer_size[i - 1], attention_layer_size[i]))
 
-        mlp3_input_dim = self.mlp2_dims[-1] + self.self_state_dim
+        mlp3_input_dim = self.mlp2_dims[-1] + self.robot_state_dim
         # self.mlp3 = mlp(mlp3_input_dim, mlp3_dims)
         mlp3_layer_sizes = [mlp3_input_dim] + self.mlp3_dims
         for i in range(1, len(mlp3_layer_sizes)):
@@ -80,9 +80,9 @@ class NormalMLPPolicy(Policy):
         # Social Attention (w/o local map) Begin
 
                 # mlp1_output = self.mlp1(state.view((-1, size[2]))) # (traj# * - * -, hidden size) = (100 * 20 * 5, 100)
-        state_before_rotate = convert_to_robot_ped_pair(state.float(), self.self_state_before_rotate, self.ped_state_before_rotate, self.ped_num)
+        state_before_rotate = convert_to_robot_ped_pair(state.float(), self.robot_state_before_rotate, self.ped_state_before_rotate, self.ped_num)
         state, rot = rotate(state_before_rotate) # state after rotate (100, 20, 5, 9)
-        self_state = state[..., 0, :self.self_state_dim]  
+        robot_state = state[..., 0, :self.robot_state_dim]  
 
         size = state.shape
 
@@ -142,7 +142,7 @@ class NormalMLPPolicy(Policy):
 
       
         # concatenate agent's state with global weighted humans' state
-        joint_state = torch.cat([self_state, weighted_feature], dim=len(size)-2) # (100, 20, 56)
+        joint_state = torch.cat([robot_state, weighted_feature], dim=len(size)-2) # (100, 20, 56)
 
 
 
@@ -178,30 +178,30 @@ class NormalMLPPolicy(Policy):
 
         return Normal(loc=action_value, scale=scale)
 
-# self_state_dim = 2
+# robot_state_dim = 2
 # ped_state_dim = 2
 # ped_num = 5
 # state = torch.zeros((100,20, 12))  # 1 robot, 4 ped
-def convert_to_robot_ped_pair(state, self_state_dim, ped_state_dim, ped_num):
+def convert_to_robot_ped_pair(state, robot_state_dim, ped_state_dim, ped_num):
     size = state.shape
     if len(size) == 3:
-        self_state = state[:,:, :self_state_dim].unsqueeze(dim=len(size)-1)
-        ped_state = state[:,:, self_state_dim:].view(size[0], size[1], ped_num, ped_state_dim)
+        robot_state = state[:,:, :robot_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[:,:, robot_state_dim:].view(size[0], size[1], ped_num, ped_state_dim)
     if len(size) == 2:
-        self_state = state[:,:self_state_dim].unsqueeze(dim=len(size)-1)
-        ped_state = state[:,self_state_dim:].view(size[0], ped_num, ped_state_dim)
+        robot_state = state[:,:robot_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[:,robot_state_dim:].view(size[0], ped_num, ped_state_dim)
     if len(size) == 1:
-        self_state = state[:self_state_dim].unsqueeze(dim=len(size)-1)
-        ped_state = state[self_state_dim:].view(ped_num, ped_state_dim)
+        robot_state = state[:robot_state_dim].unsqueeze(dim=len(size)-1)
+        ped_state = state[robot_state_dim:].view(ped_num, ped_state_dim)
 
     ped_state_list = torch.split(ped_state, 1, dim=len(size)-1)
 
     robot_ped_pair_list = []
     for i in range(ped_num):
-        robot_ped_pair_list.append(torch.cat((self_state, ped_state_list[i]), dim=len(size)))
+        robot_ped_pair_list.append(torch.cat((robot_state, ped_state_list[i]), dim=len(size)))
 
     robot_ped_pairs = torch.cat(robot_ped_pair_list, dim=len(size)-1)
-    return robot_ped_pairs #, self_state.squeeze(dim =len(size)-1)
+    return robot_ped_pairs #, robot_state.squeeze(dim =len(size)-1)
 
 
 def rotate(state):
@@ -209,8 +209,8 @@ def rotate(state):
     Transform the coordinate to agent-centric.
     Input state tensor is of size (batch_size, state_length)
     """
-    # 'px', 'py', 'vx', 'vy', 'gx', 'gy', 'px1', 'py1', 'vx1', 'vy1', 'radius1'
-    #  0     1      2     3      4    5     6      7      8       9     10      
+    # 'px', 'py', 'vx', 'vy', 'gx', 'gy', 'px1', 'py1', 'vx1', 'vy1'
+    #  0     1      2     3      4    5     6      7      8       9     
 
     # print("rotate(state) input shape: ", state.shape) # [8, 4, 11]
     # print(" ")
@@ -234,11 +234,11 @@ def rotate(state):
 
     py1 = (state[..., 7] - state[..., 1]) * torch.cos(rot) - (state[..., 6] - state[..., 0]) * torch.sin(rot)
     py1 = py1.unsqueeze(dim = last_dim)
-    radius1 = state[..., 10].unsqueeze(dim = last_dim)
+    # radius1 = state[..., 10].unsqueeze(dim = last_dim)
 
     da = torch.norm(torch.cat([(state[..., 0] - state[..., 6]).unsqueeze(dim = last_dim), (state[..., 1] - state[..., 7]).
                               unsqueeze(dim = last_dim)], dim=last_dim), 2, dim=last_dim, keepdim=True) # (100, 20, 1)
-    new_state = torch.cat([dg, vx, vy, px1, py1, vx1, vy1, radius1, da], dim=last_dim)
+    new_state = torch.cat([dg, vx, vy, px1, py1, vx1, vy1, da], dim=last_dim)
 
     return new_state, rot # (100, 20, 9) 
 

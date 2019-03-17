@@ -21,7 +21,8 @@ class EnvWorker(mp.Process):
     def empty_step(self):
         observation = np.zeros(self.env.observation_space.shape,
                                dtype=np.float32)
-        reward, done = 0.0, True
+        done = True
+        reward = np.zeros((3,), dtype=np.float32)
         return observation, reward, done, {}
 
     def try_reset(self):
@@ -58,7 +59,7 @@ class EnvWorker(mp.Process):
                                  self.env.action_space))
 
             elif command == 'get_peds':
-                self.remote.send(self.env.unwrapped._ped_states.reshape(8,))
+                self.remote.send(self.env.unwrapped._ped_poses.reshape(8,))
             else:
                 raise NotImplementedError()
 
@@ -106,6 +107,10 @@ class SubprocVecEnv(gym.Env):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         observations, rewards, dones, task_ids, infos = zip(*results)
+
+        # print("\nlen(rewards) ", len(rewards))
+        # print("\nrewards", rewards)
+
         return np.stack(observations), np.stack(rewards), np.stack(dones), task_ids, infos
 
     def reset(self):

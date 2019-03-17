@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import torch
 import json
+import sys
 import pickle
 import time
 import timeit
@@ -14,9 +15,13 @@ from maml_rl.sampler import BatchSampler
 from tensorboardX import SummaryWriter
 
 def total_rewards(episodes_rewards, aggregation=torch.mean):
-    rewards = torch.mean(torch.stack([aggregation(torch.sum(rewards, dim=0))
+    rewards_total = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,0], dim=0))
         for rewards in episodes_rewards], dim=0))
-    return rewards.item()
+    rewards_dist = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,1], dim=0))
+        for rewards in episodes_rewards], dim=0))
+    rewards_col = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,2], dim=0))
+        for rewards in episodes_rewards], dim=0))
+    return rewards_total.item(), rewards_dist.item(), rewards_col.item()
 
 def time_elapsed(elapsed_seconds):
     seconds = int(elapsed_seconds)
@@ -36,6 +41,8 @@ def main(args):
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_folder = './saves/{0}'.format(args.output_folder)
     log_traj_folder = './logs/{0}'.format(args.output_traj_folder)
+
+
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
     if not os.path.exists(log_traj_folder):
@@ -44,6 +51,13 @@ def main(args):
         config = {k: v for (k, v) in vars(args).items() if k != 'device'}
         config.update(device=args.device.type)
         json.dump(config, f, indent=2)
+
+
+
+    log_reward_total_file = open('./logs/reward_total.txt', 'a')
+    log_reward_dist_file = open('./logs/reward_dist.txt', 'a')
+    log_reward_col_file = open('./logs/reward_col.txt', 'a')
+
 
     sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
         num_workers=args.num_workers)
@@ -100,10 +114,22 @@ def main(args):
         # ewerw
 
         # Tensorboard
-        writer.add_scalar('total_rewards/before_update',
-            total_rewards([ep.rewards for ep, _ in episodes]), batch)
-        writer.add_scalar('total_rewards/after_update',
-            total_rewards([ep.rewards for _, ep in episodes]), batch)
+        total_reward_be, dist_reward_be, col_reward_be = total_rewards([ep.rewards for ep, _ in episodes])
+        total_reward_af, dist_reward_af, col_reward_af = total_rewards([ep.rewards for _, ep in episodes])
+
+        log_reward_total_file.write(str(batch)+','+str(total_reward_be)+','+str(total_reward_af)+'\n')
+        log_reward_dist_file.write(str(batch)+','+str(dist_reward_be)+','+str(dist_reward_af)+'\n')
+        log_reward_col_file.write(str(batch)+','+str(col_reward_be)+','+str(col_reward_af)+'\n')
+
+
+        writer.add_scalar('total_rewards/before_update', total_reward_be, batch)
+        writer.add_scalar('total_rewards/after_update', total_reward_af, batch)
+
+        writer.add_scalar('distance_reward/before_update', dist_reward_be, batch)
+        writer.add_scalar('distance_reward/after_update', dist_reward_af, batch)
+
+        writer.add_scalar('collison_rewards/before_update', col_reward_be, batch)
+        writer.add_scalar('collison_rewards/after_update', col_reward_af, batch)
 
         if batch % args.save_every == 0: # maybe it can save time/space if the models are saved only periodically
             # Save policy network
@@ -143,8 +169,13 @@ def main(args):
 
         print('finished epoch {}; time elapsed: {}'.format(batch,  time_elapsed(time.time() - start_time)))
 
+    # log_reward_total_file.close() # didn't feel the need to call close()
+    # log_reward_dist_file.close()
+    # log_reward_col_file.close()
+
         # print(episodes[0][1].observations.shape) # the valid episode of the first task
         # print("FINISHED the first batch of meta-learning")
+        # ewerfwe
 
 
 if __name__ == '__main__':
@@ -172,15 +203,15 @@ if __name__ == '__main__':
         help='number of hidden layers')
 
     # Task-specific
-    parser.add_argument('--fast-batch-size', type=int, default=20,
+    parser.add_argument('--fast-batch-size', type=int, default=20, # 17
         help='batch size for each individual task')
-    parser.add_argument('--fast-lr', type=float, default=0.05,
+    parser.add_argument('--fast-lr', type=float, default=0.1,
         help='learning rate for the 1-step gradient update of MAML')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=1000,
+    parser.add_argument('--num-batches', type=int, default=200,
         help='number of batches')
-    parser.add_argument('--meta-batch-size', type=int, default=25,
+    parser.add_argument('--meta-batch-size', type=int, default=22, #22
         help='number of tasks per batch')
     parser.add_argument('--max-kl', type=float, default=1e-2,
         help='maximum value for the KL constraint in TRPO')
@@ -198,7 +229,7 @@ if __name__ == '__main__':
         help='name of the output folder')
     parser.add_argument('--output-traj-folder', type=str, default='2DNavigation-traj-dir',
         help='name of the output trajectory folder')
-    parser.add_argument('--save_every', type=int, default=20,     
+    parser.add_argument('--save_every', type=int, default=10,     
                         help='save frequency')
     parser.add_argument('--num-workers', type=int, default=8,
         help='number of workers for trajectories sampling')
