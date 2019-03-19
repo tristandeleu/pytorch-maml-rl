@@ -15,9 +15,13 @@ from maml_rl.sampler import BatchSampler
 from tensorboardX import SummaryWriter
 
 def total_rewards(episodes_rewards, aggregation=torch.mean):
-    rewards = torch.mean(torch.stack([aggregation(torch.sum(rewards, dim=0))
+    rewards_total = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,0], dim=0))
         for rewards in episodes_rewards], dim=0))
-    return rewards.item()
+    rewards_dist = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,1], dim=0))
+        for rewards in episodes_rewards], dim=0))
+    rewards_col = torch.mean(torch.stack([aggregation(torch.sum(rewards[...,2], dim=0))
+        for rewards in episodes_rewards], dim=0))
+    return rewards_total.item(), rewards_dist.item(), rewards_col.item()
 
 def time_elapsed(elapsed_seconds):
     seconds = int(elapsed_seconds)
@@ -27,54 +31,60 @@ def time_elapsed(elapsed_seconds):
     return  ', '.join('{} {}'.format(value, name) for name, value in periods if value)
 
 def main(args):
-    print(args)
-    continuous_actions = (args.env_name in ['2DNavigation-v0', 'RVONavigation-v0',  'RVONavigationAll-v0'])
-    assert continuous_actions == True
+    env_name = 'RVONavigationAll-v0' #['2DNavigation-v0', 'RVONavigation-v0',  'RVONavigationAll-v0']
+    test_folder = './{0}'.format('test_nav')
+    fast_batch_size = 40 # number of trajectories
+    saved_policy_file = os.path.join('./TrainingResults/result3/saves/{0}'.format('maml-2DNavigation-dir'), 'policy-180.pt')
 
-    test_folder = './{0}'.format(args.output_folder)
-    if not os.path.exists(test_folder):
-        os.makedirs(test_folder)
-        print("Creating new test folder", test_folder)
-
-    sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
-        num_workers=args.num_workers)
+    sampler = BatchSampler(env_name, batch_size=fast_batch_size, num_workers=3)
     policy = NormalMLPPolicy(
         int(np.prod(sampler.envs.observation_space.shape)),
         int(np.prod(sampler.envs.action_space.shape)),
-        hidden_sizes=(args.hidden_size,) * args.num_layers)
+        hidden_sizes = (100,) * 2)
 
     # Loading policy
-    saved_policy_file = os.path.join('./saved_policy/{0}'.format('maml-RVONavigation-dir'), 'policy-30.pt')
     if os.path.isfile(saved_policy_file):
-        print('Loading saved policy')
         policy_info = torch.load(saved_policy_file, map_location=lambda storage, loc: storage)
         policy.load_state_dict(policy_info)
+        print('Loaded saved policy')
     else:
         sys.exit("The requested policy does not exist for loading")
 
-    baseline = LinearFeatureBaseline(int(np.prod(sampler.envs.observation_space.shape)))
-    metalearner = MetaLearner(sampler, policy, baseline, gamma=args.gamma,
-        fast_lr=args.fast_lr, tau=args.tau, device=args.device)
+    
+    # Creating test folder
+    if not os.path.exists(test_folder):
+        os.makedirs(test_folder)
 
-    # Start validation
-    print("Starting to test...")
-    start_time = time.time()
-    # goals = [[-0.3, 0.3]]
-    # tasks = [{'goal': goal} for goal in goals]
+    # Generate tasks
+    # goal = [[-0.8, 0.9]]
+    # task = [{'goal': goal}][0]
     tasks = sampler.sample_tasks(num_tasks=1)
     task = tasks[0]
 
-    # test_episodes = metalearner.sample_test(task, first_order=args.first_order)
-
-    test_episodes = metalearner.test(task, n_grad = args.grad_steps, first_order=args.first_order)
-    with open(os.path.join(test_folder, 'task.pkl'), 'wb') as f: 
-        pickle.dump(task, f)
-
+    # Start validation
+    print("Starting to test...Total step = ", args.grad_steps)
+    start_time = time.time()
+    # baseline = LinearFeatureBaseline(int(np.prod(sampler.envs.observation_space.shape)))
+    baseline = LinearFeatureBaseline(int(np.prod((2,))))
+    metalearner = MetaLearner(sampler, policy, baseline, gamma=0.9,fast_lr=0.01, tau=0.99, device='cpu')
+    
+    # test_episodes = metalearner.sample(tasks)
+    # for train, valid in test_episodes:
+    #     total_reward, dist_reward, col_reward = total_rewards(train.rewards)
+    #     print(total_reward)
+    #     total_reward, dist_reward, col_reward = total_rewards(valid.rewards)
+    #     print(total_reward)
+    
+    test_episodes = metalearner.test(task, n_grad = args.grad_steps)
+    print('-------------------')
     for n_grad, ep in test_episodes:
-        print(n_grad)
-        with open(os.path.join(test_folder, 'test_episodes_grad'+str(n_grad)+'.pkl'), 'wb') as f: 
-            pickle.dump([ep.observations.cpu().numpy(), ep], f)
-        
+        total_reward, dist_reward, col_reward = total_rewards(ep.rewards)
+        print(total_reward)
+    #     with open(os.path.join(test_folder, 'test_episodes_grad'+str(n_grad)+'.pkl'), 'wb') as f: 
+    #         pickle.dump([ep.observations.cpu().numpy(), ep], f)
+     
+    # with open(os.path.join(test_folder, 'task.pkl'), 'wb') as f: 
+    #     pickle.dump(task, f)   
     print('Finished test. Time elapsed = {}'.format(time_elapsed(time.time() - start_time)))
 
 
@@ -86,53 +96,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Reinforcement learning with '
         'Model-Agnostic Meta-Learning (MAML)')
 
-    # General
-    parser.add_argument('--env-name', type=str, default='RVONavigationAll-v0',
-        help='name of the environment')
-    parser.add_argument('--gamma', type=float, default=0.95,
-        help='value of the discount factor gamma')
-    parser.add_argument('--tau', type=float, default=1.0,
-        help='value of the discount factor for GAE')
-    parser.add_argument('--first-order', action='store_true',
-        help='use the first-order approximation of MAML')
-
-    # Policy network (relu activation function)
-    parser.add_argument('--hidden-size', type=int, default=100,
-        help='number of hidden units per layer')
-    parser.add_argument('--num-layers', type=int, default=2,
-        help='number of hidden layers')
-
-    # Task-specific
-    parser.add_argument('--fast-batch-size', type=int, default=15,
-        help='batch size for each individual task')
-    parser.add_argument('--fast-lr', type=float, default=0.1,
-        help='learning rate for the 1-step gradient update of MAML')
-
-    # Optimization
-    parser.add_argument('--max-kl', type=float, default=1e-2,
-        help='maximum value for the KL constraint in TRPO')
-    parser.add_argument('--cg-iters', type=int, default=10,
-        help='number of iterations of conjugate gradient')
-    parser.add_argument('--cg-damping', type=float, default=1e-5,
-        help='damping in conjugate gradient')
-    parser.add_argument('--ls-max-steps', type=int, default=15,
-        help='maximum number of iterations for line search')
-    parser.add_argument('--ls-backtrack-ratio', type=float, default=0.8,
-        help='maximum number of iterations for line search')
-
-    # Miscellaneous
-    parser.add_argument('--output-folder', type=str, default='test_nav',
-        help='name of the output folder')
-    parser.add_argument('--num-workers', type=int, default=8,
-        help='number of workers for trajectories sampling')
-    parser.add_argument('--grad-steps', type=int, default=3,
+    parser.add_argument('--grad-steps', type=int, default=5,
         help='number of gradient updates steps')
 
     args = parser.parse_args()
 
-    # Device
-    args.device = torch.device(args.device
-        if torch.cuda.is_available() else 'cpu')
     # Slurm
     if 'SLURM_JOB_ID' in os.environ:
         args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])

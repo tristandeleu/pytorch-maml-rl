@@ -58,8 +58,8 @@ class EnvWorker(mp.Process):
                 self.remote.send((self.env.observation_space,
                                  self.env.action_space))
 
-            elif command == 'get_peds':
-                self.remote.send(self.env.unwrapped._ped_poses.reshape(8,))
+            # elif command == 'get_peds':
+            #     self.remote.send(self.env.unwrapped._ped_states.reshape(16,))
             else:
                 raise NotImplementedError()
 
@@ -86,17 +86,17 @@ class SubprocVecEnv(gym.Env):
         self.step_async(actions)
         return self.step_wait()
 
-    def get_peds(self):
-        hid_observations = []
-        for remote in self.remotes:
-            remote.send(('get_peds', None))
-            hid_observation = remote.recv()
-            hid_observations.append(hid_observation)
-            # print(hid_observation)
+    # def get_peds(self):
+    #     hid_observations = []
+    #     for remote in self.remotes:
+    #         remote.send(('get_peds', None))
+    #         hid_observation = remote.recv()
+    #         hid_observations.append(hid_observation)
+    #         # print(hid_observation)
 
-        # hid_observations = self.workers[0].env.unwrapped._ped_states[3].reshape(1,2)
-        # print(hid_observations)
-        return np.stack(hid_observations)
+    #     # hid_observations = self.workers[0].env.unwrapped._ped_states[3].reshape(1,2)
+    #     # print(hid_observations)
+    #     return np.stack(hid_observations)
 
     def step_async(self, actions):
         for remote, action in zip(self.remotes, actions):

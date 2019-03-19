@@ -9,7 +9,7 @@ class BatchEpisodes(object):
         self.device = device
 
         self._observations_list = [[] for _ in range(batch_size)]
-        self._hid_observations_list = [[] for _ in range(batch_size)]
+        # self._hid_observations_list = [[] for _ in range(batch_size)]
         self._actions_list = [[] for _ in range(batch_size)]
         self._rewards_list = [[] for _ in range(batch_size)]
         self._mask_list = []
@@ -32,16 +32,16 @@ class BatchEpisodes(object):
             self._observations = torch.from_numpy(observations).to(self.device)
         return self._observations
 
-    @property
-    def hid_observations(self):
-        if self._hid_observations is None:
-            hid_observation_shape = self._hid_observations_list[0][0].shape
-            hid_observations = np.zeros((len(self), self.batch_size) + hid_observation_shape, dtype=np.float32)
-            for i in range(self.batch_size):
-                length = len(self._hid_observations_list[i])
-                hid_observations[:length, i] = np.stack(self._hid_observations_list[i], axis=0)
-            self._hid_observations = torch.from_numpy(hid_observations).to(self.device)
-        return self._hid_observations
+    # @property
+    # def hid_observations(self):
+    #     if self._hid_observations is None:
+    #         hid_observation_shape = self._hid_observations_list[0][0].shape
+    #         hid_observations = np.zeros((len(self), self.batch_size) + hid_observation_shape, dtype=np.float32)
+    #         for i in range(self.batch_size):
+    #             length = len(self._hid_observations_list[i])
+    #             hid_observations[:length, i] = np.stack(self._hid_observations_list[i], axis=0)
+    #         self._hid_observations = torch.from_numpy(hid_observations).to(self.device)
+    #     return self._hid_observations
 
     @property
     def actions(self):
@@ -105,13 +105,13 @@ class BatchEpisodes(object):
 
         return advantages
 
-    def append(self, observations, hid_observations, actions, rewards, batch_ids):
-        for observation, hid_observation, action, reward, batch_id in zip(
-                observations, hid_observations, actions, rewards, batch_ids):
+    def append(self, observations, actions, rewards, batch_ids):
+        for observation, action, reward, batch_id in zip(
+                observations, actions, rewards, batch_ids):
             if batch_id is None:
                 continue
             self._observations_list[batch_id].append(observation.astype(np.float32))
-            self._hid_observations_list[batch_id].append(hid_observation)
+            # self._hid_observations_list[batch_id].append(hid_observation)
             self._actions_list[batch_id].append(action.astype(np.float32))
             self._rewards_list[batch_id].append(reward.astype(np.float32))
 

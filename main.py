@@ -54,9 +54,9 @@ def main(args):
 
 
 
-    log_reward_total_file = open('./logs/reward_total.txt', 'a')
-    log_reward_dist_file = open('./logs/reward_dist.txt', 'a')
-    log_reward_col_file = open('./logs/reward_col.txt', 'a')
+    # log_reward_total_file = open('./logs/reward_total.txt', 'a')
+    # log_reward_dist_file = open('./logs/reward_dist.txt', 'a')
+    # log_reward_col_file = open('./logs/reward_col.txt', 'a')
 
 
     sampler = BatchSampler(args.env_name, batch_size=args.fast_batch_size,
@@ -78,16 +78,18 @@ def main(args):
             int(np.prod(sampler.envs.observation_space.shape)),
             sampler.envs.action_space.n,
             hidden_sizes=(args.hidden_size,) * args.num_layers)
-    baseline = LinearFeatureBaseline(
-        int(np.prod(sampler.envs.observation_space.shape)))
+    # baseline = LinearFeatureBaseline(
+    #     int(np.prod(sampler.envs.observation_space.shape)))
+    baseline = LinearFeatureBaseline(int(np.prod((2,))))
 
 
 
 
 
+    resume_training = True
 
-    if args.resume_training:
-        saved_policy_path = os.path.join(save_folder, 'policy-760.pt')
+    if resume_training:
+        saved_policy_path = os.path.join('./TrainingResults/result2//saves/{0}'.format('maml-2DNavigation-dir'), 'policy-180.pt')
         if os.path.isfile(saved_policy_path):
             print('Loading a saved policy')
             policy_info = torch.load(saved_policy_path)
@@ -117,9 +119,17 @@ def main(args):
         total_reward_be, dist_reward_be, col_reward_be = total_rewards([ep.rewards for ep, _ in episodes])
         total_reward_af, dist_reward_af, col_reward_af = total_rewards([ep.rewards for _, ep in episodes])
 
+        log_reward_total_file = open('./logs/reward_total.txt', 'a')
+        log_reward_dist_file = open('./logs/reward_dist.txt', 'a')
+        log_reward_col_file = open('./logs/reward_col.txt', 'a')
+
         log_reward_total_file.write(str(batch)+','+str(total_reward_be)+','+str(total_reward_af)+'\n')
         log_reward_dist_file.write(str(batch)+','+str(dist_reward_be)+','+str(dist_reward_af)+'\n')
         log_reward_col_file.write(str(batch)+','+str(col_reward_be)+','+str(col_reward_af)+'\n')
+
+        log_reward_total_file.close() # not sure if open and close immediantly will help save the appended logs in-place 
+        log_reward_dist_file.close()
+        log_reward_col_file.close()
 
 
         writer.add_scalar('total_rewards/before_update', total_reward_be, batch)
@@ -189,9 +199,9 @@ if __name__ == '__main__':
     # General
     parser.add_argument('--env-name', type=str, default='RVONavigationAll-v0',
         help='name of the environment')
-    parser.add_argument('--gamma', type=float, default=0.99,
+    parser.add_argument('--gamma', type=float, default=0.9,
         help='value of the discount factor gamma')
-    parser.add_argument('--tau', type=float, default=1.0,
+    parser.add_argument('--tau', type=float, default=0.99,
         help='value of the discount factor for GAE')
     parser.add_argument('--first-order', action='store_true',
         help='use the first-order approximation of MAML')
@@ -203,7 +213,7 @@ if __name__ == '__main__':
         help='number of hidden layers')
 
     # Task-specific
-    parser.add_argument('--fast-batch-size', type=int, default=20, # 17
+    parser.add_argument('--fast-batch-size', type=int, default=3, # 17
         help='batch size for each individual task')
     parser.add_argument('--fast-lr', type=float, default=0.1,
         help='learning rate for the 1-step gradient update of MAML')
@@ -211,7 +221,7 @@ if __name__ == '__main__':
     # Optimization
     parser.add_argument('--num-batches', type=int, default=200,
         help='number of batches')
-    parser.add_argument('--meta-batch-size', type=int, default=22, #22
+    parser.add_argument('--meta-batch-size', type=int, default=1, #22
         help='number of tasks per batch')
     parser.add_argument('--max-kl', type=float, default=1e-2,
         help='maximum value for the KL constraint in TRPO')
@@ -221,7 +231,7 @@ if __name__ == '__main__':
         help='damping in conjugate gradient')
     parser.add_argument('--ls-max-steps', type=int, default=15,
         help='maximum number of iterations for line search')
-    parser.add_argument('--ls-backtrack-ratio', type=float, default=0.8,
+    parser.add_argument('--ls-backtrack-ratio', type=float, default=0.5,
         help='maximum number of iterations for line search')
 
     # Miscellaneous
@@ -229,7 +239,7 @@ if __name__ == '__main__':
         help='name of the output folder')
     parser.add_argument('--output-traj-folder', type=str, default='2DNavigation-traj-dir',
         help='name of the output trajectory folder')
-    parser.add_argument('--save_every', type=int, default=10,     
+    parser.add_argument('--save_every', type=int, default=20,     
                         help='save frequency')
     parser.add_argument('--num-workers', type=int, default=8,
         help='number of workers for trajectories sampling')

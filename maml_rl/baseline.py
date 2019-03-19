@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 class LinearFeatureBaseline(nn.Module):
     """Linear baseline based on handcrafted features, as described in [1] 
@@ -11,7 +12,7 @@ class LinearFeatureBaseline(nn.Module):
     """
     def __init__(self, input_size, reg_coeff=1e-5):
         super(LinearFeatureBaseline, self).__init__()
-        self.input_size = input_size
+        self.input_size = int(np.prod((2,)))
         self._reg_coeff = reg_coeff
         self.linear = nn.Linear(self.feature_size, 1, bias=False)
         self.linear.weight.data.zero_()
@@ -22,7 +23,13 @@ class LinearFeatureBaseline(nn.Module):
 
     def _feature(self, episodes):
         ones = episodes.mask.unsqueeze(2)
-        observations = episodes.observations * ones
+
+        # ind = range(6)
+        # for i in range(4):
+        #     ind = np.append(ind, [6 + i*4, 6 + i*4+1])
+        # observations = episodes.observations[..., ind] * ones
+
+        observations = episodes.observations[..., :2] * ones
         cum_sum = torch.cumsum(ones, dim=0) * ones
         al = cum_sum / 100.0
 
