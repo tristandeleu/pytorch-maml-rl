@@ -26,7 +26,7 @@ class NavRVO2Env_all(gym.Env):
     def __init__(self, task={}):
         super(NavRVO2Env_all, self).__init__()
 
-        self._num_ped = 8
+        self._num_ped = 4
         self._self_dim = 6
         self._ped_dim = 4
 
@@ -57,7 +57,7 @@ class NavRVO2Env_all(gym.Env):
         # self._n_pedestrian = 8 # or use np.random.randint but needs to adjust _ped_states
         self._entering_corner = np.float32(0.7)
         self._default_ped_states = self._entering_corner * np.array([[-1,-1], [1,-1], [1,1], [-1,1]])
-        self._default_ped_states = np.vstack((self._default_ped_states, self._default_ped_states))  # 8 ped
+        # self._default_ped_states = np.vstack((self._default_ped_states, self._default_ped_states))  # 8 ped
         self._ped_states = self._default_ped_states.copy()
         # self._ped_histories = []
 
@@ -222,7 +222,8 @@ class NavRVO2Env_all(gym.Env):
         try: # for debugging. Not sure why it gives assertion error sometimes in the middle of training...
             assert self.action_space.contains(action)
         except AssertionError as error:
-            print("AssertionError: action is {}".format(action))
+            # print("AssertionError: action is {}".format(action))
+            pass
 
         # Update robot's state
         # print(self._state[0:1], action)

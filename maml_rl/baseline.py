@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
 class LinearFeatureBaseline(nn.Module):
     """Linear baseline based on handcrafted features, as described in [1] 
     (Supplementary Material 2).
