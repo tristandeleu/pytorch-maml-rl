@@ -1,6 +1,13 @@
+
+This repository was built for the Stanford CS230 course project "Human Trajectory Prediction in Socially Interacting Crowds". The "main_scripts" directory contains
+
+
+link to originial git repo for requirement.txt
+
+
 Use:
 ```
-python main.py --env-name 2DNavigation-v0 --num-workers 8 --fast-lr 0.1 --fast-batch-size 20 --meta-batch-size 30  --num-batches 1000 --gamma 0.99
+python main.py
 ```
 
 Customized MAML for navigation in dense crowds. 
