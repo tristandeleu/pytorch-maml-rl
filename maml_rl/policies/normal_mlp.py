@@ -125,10 +125,7 @@ class NormalMLPPolicy(Policy):
         scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))      
         return Normal(loc=action_value, scale=scale)
 
-# self_state_dim = 2
-# ped_state_dim = 2
-# ped_num = 5
-# state = torch.zeros((100,20, 12))  # 1 robot, 4 ped
+    
 def convert_to_robot_ped_pair(state, self_state_dim, ped_state_dim, ped_num):
     size = state.shape
     if len(size) == 3:
