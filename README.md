@@ -8,11 +8,11 @@ In this work, we propose a robot navigation policy network what is compatible wi
 
 
 <p align="center">
-  <img src="anim_example.gif">
+  <img src="./plots_and_animation/anim_example.gif">
 </p>
 
 Pre-update policy (blue) VS. one-step gradient update policy (green):
-![](one_step_gradient.png)  
+![](./plots_and_animation/one_step_gradient.png)  
 
 Changes made for the application of this project are reflected in the Github repository as
 
