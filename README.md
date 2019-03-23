@@ -1,12 +1,14 @@
 # MAML-SA: Robot Navigation in crowds
 
-This repository was built for the Stanford CS234 course project "Robot Navigation in Crowds via Meta-learning". Two major changes were made to the pytorch implementation of MAML RL ([here](https://github.com/tristandeleu/pytorch-maml-rl)): 1) a new policy network capable of extracting features regarding robot-human pairwise interactions; 2) a new environment that simulates a dense crowd and returns the environmental response given an action. An abstract from the project report is as follows:
+This repository was built for the Stanford CS234 course project "Robot Navigation in Crowds via Meta-learning". Two major changes were made to the pytorch implementation of MAML RL ([here](https://github.com/tristandeleu/pytorch-maml-rl)): 1) a new policy network capable of extracting features regarding robot-human pairwise interactions; 2) a new environment that simulates a dense crowd and returns the environmental response given an action.
 
+# Abstract
 In this work, we propose a robot navigation policy network what is compatible with the meta-learning framework. The robot is expected to efficiently navigate in a pedestrian-rich environment with randomly assigned goals. It needs to adapt to different pedestrian speeds and traveling directions while minimizing collision rates. The proposed policy network enables the robot to be aware of the crowd with attention-based human-behavior-capture mechanism. The meta-learning framework tackles the uncertainties of the environment, and maintains the awareness of unobservable human control policies implicitly. As a result, the robot has a higher efficiency in navigating towards the assigned goal while avoiding the pedestrians with the proposed policy network as compared to an implementation of the meta-learning method for general reinforcement learning applications.
 
-![](anim_example.gif)  ![](anim_example.gif)
+![](anim_example.gif)  
 
-
+Pre-update policy (blue) VS. one-step gradient update policy (green):
+![](one_step_gradient.png)  
 
 Changes made for the application of this project are reflected in the Github repository as
 
