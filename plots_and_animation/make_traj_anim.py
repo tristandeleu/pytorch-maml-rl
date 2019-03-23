@@ -9,7 +9,6 @@ matplotlib.use('PS')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-
 # goal: an array of 2; train/valid: (2, 100); 
 def plot_traj(goal, train, valid):
 
@@ -27,7 +26,6 @@ def plot_traj(goal, train, valid):
 	ax.set_ylabel('y')
 	plt.show()
 
-	
 def anim_traj(goal, valid, ped_num):
 	def update_line(num, data, lines, dots, ped_circs):
 		line_num = len(lines)
@@ -65,7 +63,6 @@ def anim_traj(goal, valid, ped_num):
                                    interval=500, blit=True)
 	# line_ani.save('line.gif', dpi=80, writer='imagemagick')
 	plt.show()
-
 
 def main():
 	parser = argparse.ArgumentParser(description='MAML 2DNavigation plot making')
@@ -110,7 +107,6 @@ def main():
 	traj_len = one_train.shape[0]
 	# ------ PLOT train and valid --------------
 	# plot_traj(one_task['goal'], one_train[:traj_len,:], one_valid[:traj_len,:])    # (99, 4)
-
 
 	# ------ ANIMATE valid --------------
 	# one_valid = one_train
