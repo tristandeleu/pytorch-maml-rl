@@ -17,7 +17,7 @@ Pre-update policy (blue) VS. one-step gradient update policy (green):
 # Implementation
 Please refer to the [home](https://github.com/tristandeleu/pytorch-maml-rl) of the original Pytorch imeplementation of MAML for running the code (MuJoCo is not used). Details of the simulation framework (Python-RVO2) can be found [here](https://github.com/sybrenstuvel/Python-RVO2). Changes made for the application of this project based on MAML are reflected as
 
-A new environment file named navRVO2_all.py was added to ./maml_rl/envs/ and a new policy file was replacing the original normal_mlp.py in ./maml_rl/policices/. Also, two new files were added to the repository: main_test.py and make_traj_anim.py. main_test.py is used for evaluating the performance of a trained policy network through task-specific gradient updates. make_traj_anim.py is used to plot and animiate the scene of robot navigation in crowds. Other files were edited accordingly. 
+A new environment file named navRVO2_all.py was added to ./maml_rl/envs/ and a new policy file replaced the original normal_mlp.py in ./maml_rl/policices/. Also, two new files were added to the repository: main_test.py and make_traj_anim.py. main_test.py is used for evaluating the performance of a trained policy network through task-specific gradient updates. make_traj_anim.py is used to plot and animiate the scene of robot navigation in crowds. Other files were edited accordingly. 
 
 
 
