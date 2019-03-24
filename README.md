@@ -23,7 +23,7 @@ A new environment file named navRVO2_all.py was added to ./maml_rl/envs/ and a n
 
 
 
-# References:
+# References
 Finn, Chelsea, Pieter Abbeel, and Sergey Levine. "Model-agnostic meta-learning for fast adaptation of deep networks." Proceedings of the 34th International Conference on Machine Learning-Volume 70. JMLR. org, 2017.
 
 Chen, Changan, et al. "Crowd-Robot Interaction: Crowd-aware Robot Navigation with Attention-based Deep Reinforcement Learning." arXiv preprint arXiv:1809.08835 (2018).
