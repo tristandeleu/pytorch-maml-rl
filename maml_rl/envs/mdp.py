@@ -31,8 +31,8 @@ class TabularMDPEnv(gym.Env):
         self._task = task
         self._transitions = task.get('transitions', np.full((num_states,
             num_actions, num_states), 1.0 / num_states, dtype=np.float32))
-        self._rewards_mean = task.get('rewards_mean', np.zeros(num_states,
-            num_actions), dtype=np.float32)
+        self._rewards_mean = task.get('rewards_mean', np.zeros((num_states,
+            num_actions), dtype=np.float32))
         self._state = 0
         self.seed()
 
