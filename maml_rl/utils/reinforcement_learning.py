@@ -30,7 +30,7 @@ def reinforce_loss(baseline, policy, episodes, tau=1.0):
     advantages = weighted_normalize(advantages, weights=episodes.mask)
 
     pi = policy(episodes.observations)
-    log_probs = pi.log_probs(episodes.actions)
+    log_probs = pi.log_prob(episodes.actions)
     if log_probs.dim() > 2:
         log_probs = log_probs.sum(dim=2)
     loss = -weighted_mean(log_probs * advantages, dim=0, weights=episodes.mask)
