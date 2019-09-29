@@ -1,5 +1,7 @@
 import numpy as np
 
+from maml_rl.utils.torch_utils import weighted_mean, weighted_normalize
+
 def value_iteration(transitions, rewards, gamma=0.95, theta=1e-5):
     rewards = np.expand_dims(rewards, axis=2)
     values = np.zeros(transitions.shape[0], dtype=np.float32)
@@ -20,3 +22,17 @@ def value_iteration_finite_horizon(transitions, rewards, horizon=10, gamma=0.95)
         values = np.max(q_values, axis=1)
 
     return values
+
+def reinforce_loss(baseline, policy, episodes, tau=1.0):
+    # Compute the estimate of the advantage, based on GAE
+    values = baseline(episodes, params=episodes.baseline_params)
+    advantages = episodes.gae(values, tau=tau)
+    advantages = weighted_normalize(advantages, weights=episodes.mask)
+
+    pi = policy(episodes.observations)
+    log_probs = pi.log_probs(episodes.actions)
+    if log_probs.dim() > 2:
+        log_probs = log_probs.sum(dim=2)
+    loss = -weighted_mean(log_probs * advantages, dim=0, weights=episodes.mask)
+
+    return loss
