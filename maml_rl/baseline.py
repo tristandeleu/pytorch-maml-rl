@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+from collections import OrderedDict
 
 class LinearFeatureBaseline(nn.Module):
     """Linear baseline based on handcrafted features, as described in [1] 
@@ -26,10 +29,18 @@ class LinearFeatureBaseline(nn.Module):
         cum_sum = torch.cumsum(ones, dim=0) * ones
         al = cum_sum / 100.0
 
-        return torch.cat([observations, observations ** 2,
-            al, al ** 2, al ** 3, ones], dim=2)
+        return torch.cat([
+            observations,
+            observations ** 2,
+            al,
+            al ** 2,
+            al ** 3,
+            ones
+        ], dim=2)
 
-    def fit(self, episodes):
+    def fit(self, episodes, out=None):
+        if out is None:
+            out = OrderedDict()
         # sequence_length * batch_size x feature_size
         featmat = self._feature(episodes).view(-1, self.feature_size)
         # sequence_length * batch_size x 1
@@ -37,7 +48,7 @@ class LinearFeatureBaseline(nn.Module):
 
         reg_coeff = self._reg_coeff
         eye = torch.eye(self.feature_size, dtype=torch.float32,
-            device=self.linear.weight.device)
+                        device=self.linear.weight.device)
         for _ in range(5):
             try:
                 coeffs, _ = torch.gels(
@@ -52,8 +63,12 @@ class LinearFeatureBaseline(nn.Module):
                 '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
                 'matrix) is not full-rank, regardless of the regularization '
                 '(maximum regularization: {0}).'.format(reg_coeff))
-        self.linear.weight.data = coeffs.data.t()
+        out['linear.weight'] = coeffs.data.t()
 
-    def forward(self, episodes):
+        return out
+
+    def forward(self, episodes, params=None):
+        if params is None:
+            params = OrderedDict(self.named_parameters())
         features = self._feature(episodes)
-        return self.linear(features)
+        return F.linear(features, weight=params['linear.weight'])
