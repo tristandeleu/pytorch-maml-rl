@@ -23,13 +23,13 @@ def value_iteration_finite_horizon(transitions, rewards, horizon=10, gamma=0.95)
 
     return values
 
-def reinforce_loss(baseline, policy, episodes, tau=1.0):
+def reinforce_loss(baseline, policy, episodes, tau=1.0, params=None):
     # Compute the estimate of the advantage, based on GAE
     values = baseline(episodes, params=episodes.baseline_params)
     advantages = episodes.gae(values, tau=tau)
     advantages = weighted_normalize(advantages, weights=episodes.mask)
 
-    pi = policy(episodes.observations)
+    pi = policy(episodes.observations, params=params)
     log_probs = pi.log_prob(episodes.actions)
     if log_probs.dim() > 2:
         log_probs = log_probs.sum(dim=2)
