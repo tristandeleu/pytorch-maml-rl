@@ -51,13 +51,13 @@ class LinearFeatureBaseline(nn.Module):
                         device=self.linear.weight.device)
         for _ in range(5):
             try:
-                coeffs, _ = torch.gels(
+                coeffs, _ = torch.lstsq(
                     torch.matmul(featmat.t(), returns),
                     torch.matmul(featmat.t(), featmat) + reg_coeff * eye
                 )
                 break
             except RuntimeError:
-                reg_coeff += 10
+                reg_coeff *= 10
         else:
             raise RuntimeError('Unable to solve the normal equations in '
                 '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
