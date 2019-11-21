@@ -1,11 +1,14 @@
 import torch
+import threading
+
 from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
 from torch.distributions.kl import kl_divergence
 
-from maml_rl.utils.torch_utils import (weighted_mean, detach_distribution,
-                                       weighted_normalize)
+from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
 from maml_rl.utils.optimization import conjugate_gradient
+from maml_rl.utils.reinforcement_learning import reinforce_loss
+
 
 class MetaLearner(object):
     """Meta-learner
@@ -26,64 +29,43 @@ class MetaLearner(object):
         Pieter Abbeel, "Trust Region Policy Optimization", 2015
         (https://arxiv.org/abs/1502.05477)
     """
-    def __init__(self, sampler, policy, baseline, gamma=0.95,
-                 fast_lr=0.5, tau=1.0, device='cpu'):
+    def __init__(self,
+                 sampler,
+                 policy,
+                 fast_lr=0.5,
+                 num_steps=1,
+                 gamma=0.95,
+                 tau=1.0,
+                 first_order=False,
+                 device='cpu'):
         self.sampler = sampler
+
         self.policy = policy
-        self.baseline = baseline
-        self.gamma = gamma
+        self.policy.to(device)
+
         self.fast_lr = fast_lr
+        self.num_steps = num_steps
+        self.gamma = gamma
         self.tau = tau
-        self.to(device)
+        self.first_order = first_order
+        self.device = device
 
-    def inner_loss(self, episodes, params=None):
-        """Compute the inner loss for the one-step gradient update. The inner 
-        loss is REINFORCE with baseline [2], computed on advantages estimated 
-        with Generalized Advantage Estimation (GAE, [3]).
-        """
-        values = self.baseline(episodes)
-        advantages = episodes.gae(values, tau=self.tau)
-        advantages = weighted_normalize(advantages, weights=episodes.mask)
-
-        pi = self.policy(episodes.observations, params=params)
-        log_probs = pi.log_prob(episodes.actions)
-        if log_probs.dim() > 2:
-            log_probs = torch.sum(log_probs, dim=2)
-        loss = -weighted_mean(log_probs * advantages, dim=0,
-            weights=episodes.mask)
-
-        return loss
-
-    def adapt(self, episodes, first_order=False):
-        """Adapt the parameters of the policy network to a new task, from 
-        sampled trajectories `episodes`, with a one-step gradient update [1].
-        """
-        # Fit the baseline to the training episodes
-        self.baseline.fit(episodes)
-        # Get the loss on the training episodes
-        loss = self.inner_loss(episodes)
-        # Get the new parameters after a one-step gradient update
-        params = self.policy.update_params(loss, step_size=self.fast_lr,
-            first_order=first_order)
-
+    def adapt(self, episodes):
+        params = None
+        for _ in range(self.num_steps):
+            inner_loss = reinforce_loss(self.policy, episodes, params=params)
+            params = self.policy.update_params(inner_loss,
+                                               step_size=self.fast_lr,
+                                               first_order=self.first_order)
         return params
 
-    def sample(self, tasks, first_order=False):
-        """Sample trajectories (before and after the update of the parameters) 
-        for all the tasks `tasks`.
-        """
-        episodes = []
-        for task in tasks:
-            self.sampler.reset_task(task)
-            train_episodes = self.sampler.sample(self.policy,
-                gamma=self.gamma, device=self.device)
-
-            params = self.adapt(train_episodes, first_order=first_order)
-
-            valid_episodes = self.sampler.sample(self.policy, params=params,
-                gamma=self.gamma, device=self.device)
-            episodes.append((train_episodes, valid_episodes))
-        return episodes
+    def sample(self, tasks):
+        self.sampler.sample(tasks,
+                            num_steps=self.num_steps,
+                            fast_lr=self.fast_lr,
+                            gamma=self.gamma,
+                            tau=self.tau,
+                            device=self.device.type)
 
     def kl_divergence(self, episodes, old_pis=None):
         kls = []
@@ -196,7 +178,5 @@ class MetaLearner(object):
         else:
             vector_to_parameters(old_params, self.policy.parameters())
 
-    def to(self, device, **kwargs):
-        self.policy.to(device, **kwargs)
-        self.baseline.to(device, **kwargs)
-        self.device = device
+    def close(self):
+        self.sampler.close()

@@ -14,15 +14,19 @@ class Policy(nn.Module):
         self.input_size = input_size
         self.output_size = output_size
 
-    def update_params(self, loss, step_size=0.5, first_order=False):
+    def update_params(self, loss, params=None, step_size=0.5, first_order=False):
         """Apply one step of gradient descent on the loss function `loss`, with 
         step-size `step_size`, and returns the updated parameters of the neural 
         network.
         """
-        grads = torch.autograd.grad(loss, self.parameters(),
-            create_graph=not first_order)
+        if params is None:
+            params = OrderedDict(self.named_parameters())
+
+        grads = torch.autograd.grad(loss, params.values(),
+                                    create_graph=not first_order)
+
         updated_params = OrderedDict()
-        for (name, param), grad in zip(self.named_parameters(), grads):
+        for (name, param), grad in zip(params.items(), grads):
             updated_params[name] = param - step_size * grad
 
         return updated_params
