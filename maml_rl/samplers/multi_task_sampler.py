@@ -60,29 +60,29 @@ class SamplerWorker(mp.Process):
         self.train_queue = train_queue
         self.valid_queue = valid_queue
 
-    def sample(self, index, fast_lr=0.5, gamma=0.95, tau=1.0, device='cpu'):
+    def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, tau=1.0, device='cpu'):
         # Sample the training trajectories with the initial policy
         train_episodes = BatchEpisodes(batch_size=self.batch_size,
                                        gamma=gamma,
                                        device=device)
         for item in self.sample_trajectories():
             train_episodes.append(*item)
-        baseline_params = self.baseline.fit(train_episodes)
-        train_episodes.baseline_params = baseline_params
+        self.baseline.fit(train_episodes)
+        train_episodes.compute_advantages(self.baseline, tau=tau, normalize=True)
         self.train_queue.put((index, train_episodes))
 
         # Adapt the policy to the task, based on the REINFORCE loss computed on
         # the training trajectories. The gradient update in the fast adaptation
         # uses `first_order=True` no matter if the second order version of MAML
         # is used since this is only used for sampling trajectories, and not
-        # for the optimization.
-        loss = reinforce_loss(self.baseline,
-                              self.policy,
-                              train_episodes,
-                              tau=tau)
-        params = self.policy.update_params(loss,
-                                           step_size=fast_lr,
-                                           first_order=True)
+        # for optimization.
+        params = None
+        for _ in range(num_steps):
+            loss = reinforce_loss(self.policy, train_episodes, params=params)
+            params = self.policy.update_params(loss,
+                                               params=params,
+                                               step_size=fast_lr,
+                                               first_order=True)
 
         # Sample the validation trajectories with the adapted policy
         valid_episodes = BatchEpisodes(batch_size=self.batch_size,
@@ -90,7 +90,7 @@ class SamplerWorker(mp.Process):
                                        device=device)
         for item in self.sample_trajectories(params=params):
             valid_episodes.append(*item)
-        valid_episodes.baseline_params = baseline_params
+        valid_episodes.compute_advantages(self.baseline, tau=tau, normalize=True)
         self.valid_queue.put((index, valid_episodes))
 
     def sample_trajectories(self, params=None):
