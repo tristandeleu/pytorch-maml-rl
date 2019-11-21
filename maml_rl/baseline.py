@@ -38,9 +38,7 @@ class LinearFeatureBaseline(nn.Module):
             ones
         ], dim=2)
 
-    def fit(self, episodes, out=None):
-        if out is None:
-            out = OrderedDict()
+    def fit(self, episodes):
         # sequence_length * batch_size x feature_size
         featmat = self._feature(episodes).view(-1, self.feature_size)
         # sequence_length * batch_size x 1
@@ -63,12 +61,8 @@ class LinearFeatureBaseline(nn.Module):
                 '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
                 'matrix) is not full-rank, regardless of the regularization '
                 '(maximum regularization: {0}).'.format(reg_coeff))
-        out['linear.weight'] = coeffs.data.t()
+        self.linear.weight.data = coeffs.data.t()
 
-        return out
-
-    def forward(self, episodes, params=None):
-        if params is None:
-            params = OrderedDict(self.named_parameters())
+    def forward(self, episodes):
         features = self._feature(episodes)
-        return F.linear(features, weight=params['linear.weight'])
+        return self.linear(features)

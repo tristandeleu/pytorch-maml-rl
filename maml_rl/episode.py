@@ -2,33 +2,34 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from maml_rl.utils.torch_utils import weighted_normalize
+
 class BatchEpisodes(object):
-    def __init__(self, batch_size, gamma=0.95,
-                 baseline_params=None, device='cpu'):
+    def __init__(self, batch_size, gamma=0.95, device='cpu'):
         self.batch_size = batch_size
         self.gamma = gamma
-        self.baseline_params = baseline_params
         self.device = device
 
         self._observations_list = [[] for _ in range(batch_size)]
         self._actions_list = [[] for _ in range(batch_size)]
         self._rewards_list = [[] for _ in range(batch_size)]
-        self._mask_list = []
 
         self._observations = None
         self._actions = None
         self._rewards = None
         self._returns = None
         self._mask = None
+        self._advantages = None
+        self._lengths = None
 
     @property
     def observations(self):
         if self._observations is None:
             observation_shape = self._observations_list[0][0].shape
-            observations = np.zeros((len(self), self.batch_size)
-                + observation_shape, dtype=np.float32)
+            observations = np.zeros((len(self), self.batch_size) + observation_shape,
+                                    dtype=np.float32)
             for i in range(self.batch_size):
-                length = len(self._observations_list[i])
+                length = self.lengths[i]
                 observations[:length, i] = np.stack(self._observations_list[i], axis=0)
             self._observations = torch.from_numpy(observations).to(self.device)
         return self._observations
@@ -37,10 +38,10 @@ class BatchEpisodes(object):
     def actions(self):
         if self._actions is None:
             action_shape = self._actions_list[0][0].shape
-            actions = np.zeros((len(self), self.batch_size)
-                + action_shape, dtype=np.float32)
+            actions = np.zeros((len(self), self.batch_size) + action_shape,
+                               dtype=np.float32)
             for i in range(self.batch_size):
-                length = len(self._actions_list[i])
+                length = self.lengths[i]
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
             self._actions = torch.from_numpy(actions).to(self.device)
         return self._actions
@@ -50,7 +51,7 @@ class BatchEpisodes(object):
         if self._rewards is None:
             rewards = np.zeros((len(self), self.batch_size), dtype=np.float32)
             for i in range(self.batch_size):
-                length = len(self._rewards_list[i])
+                length = self.lengths[i]
                 rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
             self._rewards = torch.from_numpy(rewards).to(self.device)
         return self._rewards
@@ -71,27 +72,21 @@ class BatchEpisodes(object):
     @property
     def mask(self):
         if self._mask is None:
-            mask = np.zeros((len(self), self.batch_size), dtype=np.float32)
+            self._mask = torch.zeros((len(self), self.batch_size),
+                                     dtype=torch.float32,
+                                     device=self.device)
             for i in range(self.batch_size):
-                length = len(self._actions_list[i])
-                mask[:length, i] = 1.0
-            self._mask = torch.from_numpy(mask).to(self.device)
+                length = self.lengths[i]
+                self._mask[:length, i] = 1.0
         return self._mask
 
-    def gae(self, values, tau=1.0):
-        # Add an additional 0 at the end of values for
-        # the estimation at the end of the episode
-        values = values.squeeze(2).detach()
-        values = F.pad(values * self.mask, (0, 0, 0, 1))
-
-        deltas = self.rewards + self.gamma * values[1:] - values[:-1]
-        advantages = torch.zeros_like(deltas).float()
-        gae = torch.zeros_like(deltas[0]).float()
-        for i in range(len(self) - 1, -1, -1):
-            gae = gae * self.gamma * tau + deltas[i]
-            advantages[i] = gae
-
-        return advantages
+    @property
+    def advantages(self):
+        if self._advantages is None:
+            raise ValueError('The advantages have not been computed. Call the '
+                             'function `episodes.compute_advantages(baseline)` '
+                             'to compute and store the advantages in `episodes`.')
+        return self._advantages
 
     def append(self, observations, actions, rewards, batch_ids):
         for observation, action, reward, batch_id in zip(
@@ -102,5 +97,33 @@ class BatchEpisodes(object):
             self._actions_list[batch_id].append(action.astype(np.float32))
             self._rewards_list[batch_id].append(reward.astype(np.float32))
 
+    def compute_advantages(self, baseline, tau=1.0, normalize=True):
+        # Compute the values based on the baseline
+        values = baseline(self).squeeze(2).detach()
+        # Add an additional 0 at the end of values for
+        # the estimation at the end of the episode
+        values = F.pad(values * self.mask, (0, 0, 0, 1))
+
+        # Compute the advantages based on the values
+        deltas = self.rewards + self.gamma * values[1:] - values[:-1]
+        self._advantages = torch.zeros_like(deltas, dtype=torch.float32)
+        gae = torch.zeros_like(deltas[0], dtype=torch.float32)
+        for i in range(len(self) - 1, -1, -1):
+            gae = gae * self.gamma * tau + deltas[i]
+            self._advantages[i] = gae
+
+        # Normalize the advantages
+        if normalize:
+            self._advantages = weighted_normalize(self._advantages,
+                                                  weights=self.mask)
+
+        return self.advantages
+
+    @property
+    def lengths(self):
+        if self._lengths is None:
+            self._lengths = [len(rewards) for rewards in self._rewards_list]
+        return self._lengths
+
     def __len__(self):
-        return max(map(len, self._rewards_list))
+        return max(self.lengths)
