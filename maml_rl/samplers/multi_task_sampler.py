@@ -37,9 +37,9 @@ class MultiTaskSampler(Sampler):
     def close(self):
         for _ in range(self.num_workers):
             self.task_queue.put(None)
+        self.task_queue.join()
         self.train_episodes_queue.put(None)
         self.valid_episodes_queue.put(None)
-        self.task_queue.join()
 
         self.closed = True
 
