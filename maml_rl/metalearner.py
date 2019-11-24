@@ -39,22 +39,22 @@ class MetaLearner(object):
                  first_order=False,
                  device='cpu'):
         self.sampler = sampler
-
-        self.policy = policy
-        self.policy.to(device)
-
         self.fast_lr = fast_lr
         self.num_steps = num_steps
         self.gamma = gamma
         self.tau = tau
         self.first_order = first_order
-        self.device = device
+        self.device = torch.device(device)
+
+        self.policy = policy
+        self.policy.to(self.device)
 
     def adapt(self, episodes):
         params = None
         for _ in range(self.num_steps):
             inner_loss = reinforce_loss(self.policy, episodes, params=params)
             params = self.policy.update_params(inner_loss,
+                                               params=params,
                                                step_size=self.fast_lr,
                                                first_order=self.first_order)
         return params
