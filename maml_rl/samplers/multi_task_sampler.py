@@ -126,9 +126,6 @@ class MultiTaskSampler(Sampler):
         self.task_queue.join()
         self._join_consumer_threads()
 
-        # Close the event loop of asyncio
-        self._event_loop.close()
-
         self.closed = True
 
 
