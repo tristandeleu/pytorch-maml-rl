@@ -1,5 +1,7 @@
 import torch
 import torch.multiprocessing as mp
+import asyncio
+import threading
 
 from maml_rl.samplers.sampler import Sampler, make_env
 from maml_rl.envs.sync_vector_env import SyncVectorEnv
@@ -7,9 +9,24 @@ from maml_rl.episode import BatchEpisodes
 from maml_rl.utils.reinforcement_learning import reinforce_loss
 
 
+def _create_consumer(queue, futures, loop=None):
+    if loop is None:
+        loop = asyncio.get_event_loop()
+    while True:
+        data = queue.get()
+        if data is None:
+            break
+        index, episodes = data
+        if not futures[index].cancelled():
+            loop.call_soon_threadsafe(futures[index].set_result, episodes)
+
+
 class MultiTaskSampler(Sampler):
     def __init__(self, env_name, batch_size, policy, baseline, num_workers=1):
-        super(MultiTaskSampler, self).__init__(env_name, batch_size, policy, baseline)
+        super(MultiTaskSampler, self).__init__(env_name,
+                                               batch_size,
+                                               policy,
+                                               baseline)
         
         self.policy.share_memory()
         self.num_workers = num_workers
@@ -18,34 +35,114 @@ class MultiTaskSampler(Sampler):
         self.train_episodes_queue = mp.Queue()
         self.valid_episodes_queue = mp.Queue()
 
-        self.workers = [SamplerWorker(env_name, self.env.observation_space,
-            self.env.action_space, batch_size, self.policy, self.baseline,
-            self.task_queue, self.train_episodes_queue, self.valid_episodes_queue)
+        self.workers = [SamplerWorker(env_name,
+                                      batch_size,
+                                      self.env.observation_space,
+                                      self.env.action_space,
+                                      self.policy,
+                                      self.baseline,
+                                      self.task_queue,
+                                      self.train_episodes_queue,
+                                      self.valid_episodes_queue)
             for _ in range(num_workers)]
 
         for worker in self.workers:
             worker.daemon = True
             worker.start()
 
+        self._event_loop = asyncio.get_event_loop()
+        self._train_consumer_thread = None
+        self._valid_consumer_thread = None
+
     def sample_tasks(self, num_tasks):
         return self.env.unwrapped.sample_tasks(num_tasks)
 
+    def sample_async(self, tasks, **kwargs):
+        for index, task in enumerate(tasks):
+            self.task_queue.put((index, task, kwargs))
+
+        # Start train episodes consumer thread
+        train_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        self._train_consumer_thread = threading.Thread(target=_create_consumer,
+            args=(self.train_episodes_queue, train_episodes_futures),
+            kwargs={'loop': self._event_loop},
+            name='train-consumer')
+        self._train_consumer_thread.start()
+
+        # Start valid episodes consumer thread
+        valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        self._valid_consumer_thread = threading.Thread(target=_create_consumer,
+            args=(self.valid_episodes_queue, valid_episodes_futures),
+            kwargs={'loop': self._event_loop},
+            name='valid-consumer')
+        self._valid_consumer_thread.start()
+
+        return (train_episodes_futures, valid_episodes_futures)
+
+    async def sample_wait(self, episodes_futures):
+        train_futures, valid_futures = episodes_futures
+        # Gather the train and valid episodes
+        train_episodes = await asyncio.gather(*train_futures)
+        valid_episodes = await asyncio.gather(*valid_futures)
+        self._join_consumer_threads()
+
+        return (train_episodes, valid_episodes)
+
     def sample(self, tasks, **kwargs):
-        for i, task in enumerate(tasks):
-            self.task_queue.put((i, task, kwargs))
+        results = self.sample_async(tasks, **kwargs)
+        coroutine = self.sample_wait(results)
+        return self._event_loop.run_until_complete(coroutine)
+
+    @property
+    def train_consumer_thread(self):
+        if self._train_consumer_thread is None:
+            raise ValueError()
+        return self._train_consumer_thread
+
+    @property
+    def valid_consumer_thread(self):
+        if self._valid_consumer_thread is None:
+            raise ValueError()
+        return self._valid_consumer_thread
+
+    def _join_consumer_threads(self):
+        if self._train_consumer_thread is not None:
+            self.train_episodes_queue.put(None)
+            self.train_consumer_thread.join()
+
+        if self._valid_consumer_thread is not None:
+            self.valid_episodes_queue.put(None)
+            self.valid_consumer_thread.join()
+
+        self._train_consumer_thread = None
+        self._valid_consumer_thread = None
 
     def close(self):
+        if self.closed:
+            return
+
         for _ in range(self.num_workers):
             self.task_queue.put(None)
         self.task_queue.join()
-        self.train_episodes_queue.put(None)
-        self.valid_episodes_queue.put(None)
+        self._join_consumer_threads()
+
+        # Close the event loop of asyncio
+        self._event_loop.close()
 
         self.closed = True
 
 
 class SamplerWorker(mp.Process):
-    def __init__(self, env_name, observation_space, action_space, batch_size, policy, baseline, task_queue, train_queue, valid_queue):
+    def __init__(self,
+                 env_name,
+                 batch_size,
+                 observation_space,
+                 action_space,
+                 policy,
+                 baseline,
+                 task_queue,
+                 train_queue,
+                 valid_queue):
         super(SamplerWorker, self).__init__()
 
         env_fns = [make_env(env_name) for _ in range(batch_size)]

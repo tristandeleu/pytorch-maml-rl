@@ -21,5 +21,8 @@ class Sampler(object):
         self.env.close()
         self.closed = False
 
-    def sample(self, *args, **kwargs):
+    def sample_async(self, *args, **kwargs):
         raise NotImplementedError()
+
+    def sample(self, *args, **kwargs):
+        return self.sample_async(*args, **kwargs)
