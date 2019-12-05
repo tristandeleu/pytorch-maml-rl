@@ -9,7 +9,7 @@ from maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
 
 def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
     continuous_actions = isinstance(env.action_space, gym.spaces.Box)
-    input_size = reduce(mul, env.observation_space.shape, 1)
+    input_size = get_input_size(env)
     nonlinearity = getattr(F, nonlinearity)
 
     if continuous_actions:
@@ -25,3 +25,6 @@ def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
                                       hidden_sizes=hidden_sizes,
                                       nonlinearity=nonlinearity)
     return policy
+
+def get_input_size(env):
+    return reduce(mul, env.observation_space.shape, 1)

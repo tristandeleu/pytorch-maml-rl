@@ -6,7 +6,7 @@ import json
 from maml_rl.metalearner import MetaLearner
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
-from maml_rl.utils.helpers import get_policy_for_env
+from maml_rl.utils.helpers import get_policy_for_env, get_input_size
 
 # from tensorboardX import SummaryWriter
 
@@ -34,7 +34,7 @@ def main(args):
                                 hidden_sizes=hidden_sizes,
                                 nonlinearity=args.nonlinearity)
     # Baseline
-    baseline = LinearFeatureBaseline(input_size)
+    baseline = LinearFeatureBaseline(get_input_size(env))
     # Sampler
     sampler = MultiTaskSampler(args.env_name,
                                batch_size=args.fast_batch_size,
