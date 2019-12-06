@@ -6,36 +6,24 @@ from torch.nn.utils.convert_parameters import (vector_to_parameters,
 from torch.distributions.kl import kl_divergence
 
 from maml_rl.samplers import MultiTaskSampler
+from maml_rl.metalearners.base import GradientBasedMetaLearner
 from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
 from maml_rl.utils.optimization import conjugate_gradient
 from maml_rl.utils.reinforcement_learning import reinforce_loss
 
 
-class ModelAgnosticMetaLearning(object):
+class MAMLTRPO(GradientBasedMetaLearner):
     def __init__(self,
                  sampler,
                  policy,
                  fast_lr=0.5,
                  num_steps=1,
-                 gamma=0.95,
-                 tau=1.0,
                  first_order=False,
                  device='cpu'):
-        self.sampler = sampler
+        super(MAMLTRPO, self).__init__(sampler, policy, device=device)
         self.fast_lr = fast_lr
         self.num_steps = num_steps
-        self.gamma = gamma
-        self.tau = tau
         self.first_order = first_order
-        self.device = torch.device(device)
-
-        self.policy = policy
-        self.policy.to(self.device)
-
-        if isinstance(sampler, MultiTaskSampler):
-            self._event_loop = self.sampler._event_loop
-        else:
-            self._event_loop = asyncio.get_event_loop()
 
     def adapt(self, episodes):
         params = None
@@ -47,21 +35,13 @@ class ModelAgnosticMetaLearning(object):
                                                first_order=self.first_order)
         return params
 
-    def sample_async(self, tasks):
+    def sample_async(self, tasks, gamma=0.95, tau=1.0):
         return self.sampler.sample_async(tasks,
                                          num_steps=self.num_steps,
                                          fast_lr=self.fast_lr,
-                                         gamma=self.gamma,
-                                         tau=self.tau,
+                                         gamma=gamma,
+                                         tau=tau,
                                          device=self.device.type)
-
-    def sample(self, tasks):
-        return self.sampler.sample(tasks,
-                                   num_steps=self.num_steps,
-                                   fast_lr=self.fast_lr,
-                                   gamma=self.gamma,
-                                   tau=self.tau,
-                                   device=self.device.type)
 
     def hessian_vector_product(self, kl, damping=1e-2):
         grads = torch.autograd.grad(kl,
@@ -180,9 +160,3 @@ class ModelAgnosticMetaLearning(object):
 
         if isinstance(self.sampler, MultiTaskSampler):
             self.sampler._join_consumer_threads()
-
-    def close(self):
-        self.sampler.close()
-
-
-MAMLTRPO = ModelAgnosticMetaLearning

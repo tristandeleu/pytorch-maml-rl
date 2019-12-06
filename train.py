@@ -4,7 +4,7 @@ import torch
 import json
 from tqdm import trange
 
-from maml_rl.metalearner import ModelAgnosticMetaLearning
+from maml_rl.metalearners import MAMLTRPO
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
@@ -41,18 +41,18 @@ def main(args):
                                env=env,
                                num_workers=args.num_workers)
 
-    metalearner = ModelAgnosticMetaLearning(sampler,
-                                            policy,
-                                            num_steps=args.num_steps,
-                                            gamma=args.gamma,
-                                            fast_lr=args.fast_lr,
-                                            tau=args.tau,
-                                            first_order=args.first_order,
-                                            device=args.device)
+    metalearner = MAMLTRPO(sampler,
+                           policy,
+                           fast_lr=args.fast_lr,
+                           num_steps=args.num_steps,
+                           first_order=args.first_order,
+                           device=args.device)
 
     for batch in trange(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
-        train_episodes, valid_episodes = metalearner.sample_async(tasks)
+        train_episodes, valid_episodes = metalearner.sample_async(tasks,
+                                                                  gamma=args.gamma,
+                                                                  tau=args.tau)
         metalearner.step(train_episodes,
                          valid_episodes,
                          max_kl=args.max_kl,
