@@ -22,11 +22,18 @@ def _create_consumer(queue, futures, loop=None):
 
 
 class MultiTaskSampler(Sampler):
-    def __init__(self, env_name, batch_size, policy, baseline, num_workers=1):
+    def __init__(self,
+                 env_name,
+                 batch_size,
+                 policy,
+                 baseline,
+                 env=None,
+                 num_workers=1):
         super(MultiTaskSampler, self).__init__(env_name,
                                                batch_size,
                                                policy,
-                                               baseline)
+                                               baseline,
+                                               env=env)
         
         self.policy.share_memory()
         self.num_workers = num_workers
