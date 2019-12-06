@@ -1,34 +1,17 @@
 import torch
-import threading
+import asyncio
 
 from torch.nn.utils.convert_parameters import (vector_to_parameters,
                                                parameters_to_vector)
 from torch.distributions.kl import kl_divergence
 
+from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
 from maml_rl.utils.optimization import conjugate_gradient
 from maml_rl.utils.reinforcement_learning import reinforce_loss
 
 
-class MetaLearner(object):
-    """Meta-learner
-
-    The meta-learner is responsible for sampling the trajectories/episodes 
-    (before and after the one-step adaptation), compute the inner loss, compute 
-    the updated parameters based on the inner-loss, and perform the meta-update.
-
-    [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
-        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
-        (https://arxiv.org/abs/1703.03400)
-    [2] Richard Sutton, Andrew Barto, "Reinforcement learning: An introduction",
-        2018 (http://incompleteideas.net/book/the-book-2nd.html)
-    [3] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, 
-        Pieter Abbeel, "High-Dimensional Continuous Control Using Generalized 
-        Advantage Estimation", 2016 (https://arxiv.org/abs/1506.02438)
-    [4] John Schulman, Sergey Levine, Philipp Moritz, Michael I. Jordan, 
-        Pieter Abbeel, "Trust Region Policy Optimization", 2015
-        (https://arxiv.org/abs/1502.05477)
-    """
+class ModelAgnosticMetaLearning(object):
     def __init__(self,
                  sampler,
                  policy,
@@ -49,6 +32,11 @@ class MetaLearner(object):
         self.policy = policy
         self.policy.to(self.device)
 
+        if isinstance(sampler, MultiTaskSampler):
+            self._event_loop = self.sampler._event_loop
+        else:
+            self._event_loop = asyncio.get_event_loop()
+
     def adapt(self, episodes):
         params = None
         for _ in range(self.num_steps):
@@ -59,97 +47,104 @@ class MetaLearner(object):
                                                first_order=self.first_order)
         return params
 
+    def sample_async(self, tasks):
+        return self.sampler.sample_async(tasks,
+                                         num_steps=self.num_steps,
+                                         fast_lr=self.fast_lr,
+                                         gamma=self.gamma,
+                                         tau=self.tau,
+                                         device=self.device.type)
+
     def sample(self, tasks):
-        self.sampler.sample(tasks,
-                            num_steps=self.num_steps,
-                            fast_lr=self.fast_lr,
-                            gamma=self.gamma,
-                            tau=self.tau,
-                            device=self.device.type)
+        return self.sampler.sample(tasks,
+                                   num_steps=self.num_steps,
+                                   fast_lr=self.fast_lr,
+                                   gamma=self.gamma,
+                                   tau=self.tau,
+                                   device=self.device.type)
 
-    def kl_divergence(self, episodes, old_pis=None):
-        kls = []
-        if old_pis is None:
-            old_pis = [None] * len(episodes)
-
-        for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
-            params = self.adapt(train_episodes)
-            pi = self.policy(valid_episodes.observations, params=params)
-
-            if old_pi is None:
-                old_pi = detach_distribution(pi)
-
-            mask = valid_episodes.mask
-            if valid_episodes.actions.dim() > 2:
-                mask = mask.unsqueeze(2)
-            kl = weighted_mean(kl_divergence(pi, old_pi), dim=0, weights=mask)
-            kls.append(kl)
-
-        return torch.mean(torch.stack(kls, dim=0))
-
-    def hessian_vector_product(self, episodes, damping=1e-2):
-        """Hessian-vector product, based on the Perlmutter method."""
+    def hessian_vector_product(self, kl, damping=1e-2):
+        grads = torch.autograd.grad(kl,
+                                    self.policy.parameters(),
+                                    create_graph=True)
         def _product(vector):
-            kl = self.kl_divergence(episodes)
-            grads = torch.autograd.grad(kl, self.policy.parameters(),
-                create_graph=True)
             flat_grad_kl = parameters_to_vector(grads)
 
             grad_kl_v = torch.dot(flat_grad_kl, vector)
-            grad2s = torch.autograd.grad(grad_kl_v, self.policy.parameters())
+            grad2s = torch.autograd.grad(grad_kl_v,
+                                         self.policy.parameters(),
+                                         retain_graph=True)
             flat_grad2_kl = parameters_to_vector(grad2s)
 
             return flat_grad2_kl + damping * vector
         return _product
 
-    def surrogate_loss(self, episodes, old_pis=None):
-        losses, kls, pis = [], [], []
-        if old_pis is None:
-            old_pis = [None] * len(episodes)
+    async def surrogate_loss(self,
+                             train_futures,
+                             valid_futures,
+                             params=None,
+                             old_pi=None):
+        if params is None:
+            params = self.adapt(await train_futures)
 
-        for (train_episodes, valid_episodes), old_pi in zip(episodes, old_pis):
-            params = self.adapt(train_episodes)
-            with torch.set_grad_enabled(old_pi is None):
-                pi = self.policy(valid_episodes.observations, params=params)
-                pis.append(detach_distribution(pi))
+        with torch.set_grad_enabled(old_pi is None):
+            valid_episodes = await valid_futures
+            pi = self.policy(valid_episodes.observations, params=params)
 
-                if old_pi is None:
-                    old_pi = detach_distribution(pi)
+            if old_pi is None:
+                old_pi = detach_distribution(pi)
 
-                log_ratio = (pi.log_prob(valid_episodes.actions)
-                    - old_pi.log_prob(valid_episodes.actions))
-                if log_ratio.dim() > 2:
-                    log_ratio = torch.sum(log_ratio, dim=2)
-                ratio = torch.exp(log_ratio)
+            log_ratio = (pi.log_prob(valid_episodes.actions)
+                         - old_pi.log_prob(valid_episodes.actions))
+            if log_ratio.dim() > 2:
+                log_ratio = torch.sum(log_ratio, dim=2)
+            ratio = torch.exp(log_ratio)
 
-                loss = -weighted_mean(ratio * valid_episodes.advantages,
-                                      dim=0, weights=valid_episodes.mask)
-                losses.append(loss)
+            loss = -weighted_mean(ratio * valid_episodes.advantages,
+                                  dim=0,
+                                  weights=valid_episodes.mask)
 
-                mask = valid_episodes.mask
-                if valid_episodes.actions.dim() > 2:
-                    mask = mask.unsqueeze(2)
-                kl = weighted_mean(kl_divergence(pi, old_pi), dim=0,
-                    weights=mask)
-                kls.append(kl)
+            mask = valid_episodes.mask
+            if valid_episodes.actions.dim() > 2:
+                mask = mask.unsqueeze(dim=2)
+            kl = weighted_mean(kl_divergence(pi, old_pi),
+                               dim=0,
+                               weights=mask)
 
-        return (torch.mean(torch.stack(losses, dim=0)),
-                torch.mean(torch.stack(kls, dim=0)), pis)
+        return loss, kl, params, old_pi
 
-    def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
-             ls_max_steps=10, ls_backtrack_ratio=0.5):
-        """Meta-optimization step (ie. update of the initial parameters), based 
-        on Trust Region Policy Optimization (TRPO, [4]).
-        """
-        old_loss, _, old_pis = self.surrogate_loss(episodes)
-        grads = torch.autograd.grad(old_loss, self.policy.parameters())
+    def step(self,
+             train_episodes,
+             valid_episodes,
+             max_kl=1e-3,
+             cg_iters=10,
+             cg_damping=1e-2,
+             ls_max_steps=10,
+             ls_backtrack_ratio=0.5):
+        num_tasks = len(train_episodes)
+
+        # Compute the surrogate loss
+        coroutine = asyncio.gather(*[self.surrogate_loss(train,
+                                                         valid,
+                                                         params=None,
+                                                         old_pi=None)
+            for (train, valid) in zip(train_episodes, valid_episodes)])
+        losses, kls, parameters, old_pis = zip(
+            *self._event_loop.run_until_complete(coroutine))
+
+        old_loss = sum(losses) / num_tasks
+        grads = torch.autograd.grad(old_loss,
+                                    self.policy.parameters(),
+                                    retain_graph=True)
         grads = parameters_to_vector(grads)
 
         # Compute the step direction with Conjugate Gradient
-        hessian_vector_product = self.hessian_vector_product(episodes,
-            damping=cg_damping)
-        stepdir = conjugate_gradient(hessian_vector_product, grads,
-            cg_iters=cg_iters)
+        kl = sum(kls) / num_tasks
+        hessian_vector_product = self.hessian_vector_product(kl,
+                                                             damping=cg_damping)
+        stepdir = conjugate_gradient(hessian_vector_product,
+                                     grads,
+                                     cg_iters=cg_iters)
 
         # Compute the Lagrange multiplier
         shs = 0.5 * torch.dot(stepdir, hessian_vector_product(stepdir))
@@ -165,13 +160,29 @@ class MetaLearner(object):
         for _ in range(ls_max_steps):
             vector_to_parameters(old_params - step_size * step,
                                  self.policy.parameters())
-            loss, kl, _ = self.surrogate_loss(episodes, old_pis=old_pis)
-            improve = loss - old_loss
+
+            coroutine = asyncio.gather(*[self.surrogate_loss(train,
+                                                             valid,
+                                                             params=params,
+                                                             old_pi=old_pi)
+                for (train, valid, params, old_pi)
+                in zip(train_episodes, valid_episodes, parameters, old_pis)])
+
+            losses, kls, _, _ = zip(
+                *self._event_loop.run_until_complete(coroutine))
+            improve = (sum(losses) / num_tasks) - old_loss
+            kl = sum(kls) / num_tasks
             if (improve.item() < 0.0) and (kl.item() < max_kl):
                 break
             step_size *= ls_backtrack_ratio
         else:
             vector_to_parameters(old_params, self.policy.parameters())
 
+        if isinstance(self.sampler, MultiTaskSampler):
+            self.sampler._join_consumer_threads()
+
     def close(self):
         self.sampler.close()
+
+
+MAMLTRPO = ModelAgnosticMetaLearning

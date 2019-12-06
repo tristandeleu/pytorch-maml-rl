@@ -2,13 +2,12 @@ import maml_rl.envs
 import gym
 import torch
 import json
+from tqdm import trange
 
-from maml_rl.metalearner import MetaLearner
+from maml_rl.metalearner import ModelAgnosticMetaLearning
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
-
-# from tensorboardX import SummaryWriter
 
 def total_rewards(episodes_rewards, aggregation=torch.mean):
     rewards = torch.mean(torch.stack([aggregation(torch.sum(rewards, dim=0))
@@ -16,7 +15,6 @@ def total_rewards(episodes_rewards, aggregation=torch.mean):
     return rewards.item()
 
 def main(args):
-    # writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_folder = './saves/{0}'.format(args.output_folder)
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -43,30 +41,25 @@ def main(args):
                                env=env,
                                num_workers=args.num_workers)
 
-    metalearner = MetaLearner(sampler,
-                              policy,
-                              num_steps=args.num_steps,
-                              gamma=args.gamma,
-                              fast_lr=args.fast_lr,
-                              tau=args.tau,
-                              first_order=args.first_order,
-                              device=args.device)
+    metalearner = ModelAgnosticMetaLearning(sampler,
+                                            policy,
+                                            num_steps=args.num_steps,
+                                            gamma=args.gamma,
+                                            fast_lr=args.fast_lr,
+                                            tau=args.tau,
+                                            first_order=args.first_order,
+                                            device=args.device)
 
-    for batch in range(args.num_batches):
+    for batch in trange(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
-        episodes = metalearner.sample(tasks)
-        metalearner.step(episodes,
+        train_episodes, valid_episodes = metalearner.sample_async(tasks)
+        metalearner.step(train_episodes,
+                         valid_episodes,
                          max_kl=args.max_kl,
                          cg_iters=args.cg_iters,
                          cg_damping=args.cg_damping,
                          ls_max_steps=args.ls_max_steps,
                          ls_backtrack_ratio=args.ls_backtrack_ratio)
-
-        # Tensorboard
-        # writer.add_scalar('total_rewards/before_update',
-        #     total_rewards([ep.rewards for ep, _ in episodes]), batch)
-        # writer.add_scalar('total_rewards/after_update',
-        #     total_rewards([ep.rewards for _, ep in episodes]), batch)
 
         # Save policy network
         with open(os.path.join(save_folder,
