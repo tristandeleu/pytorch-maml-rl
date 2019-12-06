@@ -23,6 +23,9 @@ def main(args):
         config.update(device=args.device.type)
         json.dump(config, f, indent=2)
 
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+
     env = gym.make(args.env_name)
     env.close()
 
@@ -39,6 +42,7 @@ def main(args):
                                policy=policy,
                                baseline=baseline,
                                env=env,
+                               seed=args.seed,
                                num_workers=args.num_workers)
 
     metalearner = MAMLTRPO(sampler,
@@ -129,6 +133,8 @@ if __name__ == '__main__':
     misc = parser.add_argument_group('Miscellaneous')
     misc.add_argument('--output-folder', type=str, default='maml',
         help='name of the output folder (default: maml)')
+    misc.add_argument('--seed', type=int, default=1,
+        help='random seed')
     misc.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling')
     misc.add_argument('--device', type=str, default='cpu',

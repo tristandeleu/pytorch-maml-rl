@@ -28,11 +28,13 @@ class MultiTaskSampler(Sampler):
                  policy,
                  baseline,
                  env=None,
+                 seed=None,
                  num_workers=1):
         super(MultiTaskSampler, self).__init__(env_name,
                                                batch_size,
                                                policy,
                                                baseline,
+                                               seed=seed,
                                                env=env)
         
         self.policy.share_memory()
@@ -42,16 +44,18 @@ class MultiTaskSampler(Sampler):
         self.train_episodes_queue = mp.Queue()
         self.valid_episodes_queue = mp.Queue()
 
-        self.workers = [SamplerWorker(env_name,
+        self.workers = [SamplerWorker(index,
+                                      env_name,
                                       batch_size,
                                       self.env.observation_space,
                                       self.env.action_space,
                                       self.policy,
                                       self.baseline,
+                                      self.seed,
                                       self.task_queue,
                                       self.train_episodes_queue,
                                       self.valid_episodes_queue)
-            for _ in range(num_workers)]
+            for index in range(num_workers)]
 
         for worker in self.workers:
             worker.daemon = True
@@ -140,12 +144,14 @@ class MultiTaskSampler(Sampler):
 
 class SamplerWorker(mp.Process):
     def __init__(self,
+                 index,
                  env_name,
                  batch_size,
                  observation_space,
                  action_space,
                  policy,
                  baseline,
+                 seed,
                  task_queue,
                  train_queue,
                  valid_queue):
@@ -155,6 +161,7 @@ class SamplerWorker(mp.Process):
         self.envs = SyncVectorEnv(env_fns,
                                   observation_space=observation_space,
                                   action_space=action_space)
+        self.envs.seed(seed + index * batch_size)
         self.batch_size = batch_size
         self.policy = policy
         self.baseline = baseline
