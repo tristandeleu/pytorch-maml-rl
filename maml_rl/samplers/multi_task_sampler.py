@@ -74,6 +74,7 @@ class MultiTaskSampler(Sampler):
             args=(self.train_episodes_queue, train_episodes_futures),
             kwargs={'loop': self._event_loop},
             name='train-consumer')
+        self._train_consumer_thread.daemon = True
         self._train_consumer_thread.start()
 
         # Start valid episodes consumer thread
@@ -82,6 +83,7 @@ class MultiTaskSampler(Sampler):
             args=(self.valid_episodes_queue, valid_episodes_futures),
             kwargs={'loop': self._event_loop},
             name='valid-consumer')
+        self._valid_consumer_thread.daemon = True
         self._valid_consumer_thread.start()
 
         return (train_episodes_futures, valid_episodes_futures)
