@@ -47,13 +47,13 @@ class MAMLTRPO(GradientBasedMetaLearner):
         grads = torch.autograd.grad(kl,
                                     self.policy.parameters(),
                                     create_graph=True)
-        def _product(vector):
-            flat_grad_kl = parameters_to_vector(grads)
+        flat_grad_kl = parameters_to_vector(grads)
 
+        def _product(vector, retain_graph=True):
             grad_kl_v = torch.dot(flat_grad_kl, vector)
             grad2s = torch.autograd.grad(grad_kl_v,
                                          self.policy.parameters(),
-                                         retain_graph=True)
+                                         retain_graph=retain_graph)
             flat_grad2_kl = parameters_to_vector(grad2s)
 
             return flat_grad2_kl + damping * vector
@@ -62,10 +62,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
     async def surrogate_loss(self,
                              train_futures,
                              valid_futures,
-                             params=None,
                              old_pi=None):
-        if params is None:
-            params = self.adapt(await train_futures)
+        params = self.adapt(await train_futures)
 
         with torch.set_grad_enabled(old_pi is None):
             valid_episodes = await valid_futures
@@ -106,28 +104,27 @@ class MAMLTRPO(GradientBasedMetaLearner):
         # Compute the surrogate loss
         coroutine = asyncio.gather(*[self.surrogate_loss(train,
                                                          valid,
-                                                         params=None,
                                                          old_pi=None)
             for (train, valid) in zip(train_episodes, valid_episodes)])
-        losses, kls, parameters, old_pis = zip(
+        old_losses, old_kls, parameters, old_pis = zip(
             *self._event_loop.run_until_complete(coroutine))
 
-        old_loss = sum(losses) / num_tasks
+        old_loss = sum(old_losses) / num_tasks
         grads = torch.autograd.grad(old_loss,
                                     self.policy.parameters(),
                                     retain_graph=True)
         grads = parameters_to_vector(grads)
 
         # Compute the step direction with Conjugate Gradient
-        kl = sum(kls) / num_tasks
-        hessian_vector_product = self.hessian_vector_product(kl,
+        old_kl = sum(old_kls) / num_tasks
+        hessian_vector_product = self.hessian_vector_product(old_kl,
                                                              damping=cg_damping)
         stepdir = conjugate_gradient(hessian_vector_product,
                                      grads,
                                      cg_iters=cg_iters)
 
         # Compute the Lagrange multiplier
-        shs = 0.5 * torch.dot(stepdir, hessian_vector_product(stepdir))
+        shs = 0.5 * torch.dot(stepdir, hessian_vector_product(stepdir, retain_graph=False))
         lagrange_multiplier = torch.sqrt(shs / max_kl)
 
         step = stepdir / lagrange_multiplier
@@ -143,10 +140,9 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
             coroutine = asyncio.gather(*[self.surrogate_loss(train,
                                                              valid,
-                                                             params=params,
                                                              old_pi=old_pi)
-                for (train, valid, params, old_pi)
-                in zip(train_episodes, valid_episodes, parameters, old_pis)])
+                for (train, valid, old_pi)
+                in zip(train_episodes, valid_episodes, old_pis)])
 
             losses, kls, _, _ = zip(
                 *self._event_loop.run_until_complete(coroutine))
