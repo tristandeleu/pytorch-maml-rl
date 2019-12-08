@@ -25,14 +25,16 @@ class MAMLTRPO(GradientBasedMetaLearner):
         self.num_steps = num_steps
         self.first_order = first_order
 
-    def adapt(self, episodes):
+    def adapt(self, episodes, first_order=None):
+        if first_order is None:
+            first_order = self.first_order
         params = None
         for _ in range(self.num_steps):
             inner_loss = reinforce_loss(self.policy, episodes, params=params)
             params = self.policy.update_params(inner_loss,
                                                params=params,
                                                step_size=self.fast_lr,
-                                               first_order=self.first_order)
+                                               first_order=first_order)
         return params
 
     def sample_async(self, tasks, gamma=0.95, tau=1.0):
@@ -63,7 +65,9 @@ class MAMLTRPO(GradientBasedMetaLearner):
                              train_futures,
                              valid_futures,
                              old_pi=None):
-        params = self.adapt(await train_futures)
+        first_order = (old_pi is not None) or self.first_order
+        params = self.adapt(await train_futures,
+                            first_order=first_order)
 
         with torch.set_grad_enabled(old_pi is None):
             valid_episodes = await valid_futures
