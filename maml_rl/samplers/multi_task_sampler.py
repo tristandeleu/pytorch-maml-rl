@@ -43,6 +43,7 @@ class MultiTaskSampler(Sampler):
         self.task_queue = mp.JoinableQueue()
         self.train_episodes_queue = mp.Queue()
         self.valid_episodes_queue = mp.Queue()
+        policy_lock = mp.Lock()
 
         self.workers = [SamplerWorker(index,
                                       env_name,
@@ -54,7 +55,8 @@ class MultiTaskSampler(Sampler):
                                       self.seed,
                                       self.task_queue,
                                       self.train_episodes_queue,
-                                      self.valid_episodes_queue)
+                                      self.valid_episodes_queue,
+                                      policy_lock)
             for index in range(num_workers)]
 
         for worker in self.workers:
@@ -154,7 +156,8 @@ class SamplerWorker(mp.Process):
                  seed,
                  task_queue,
                  train_queue,
-                 valid_queue):
+                 valid_queue,
+                 policy_lock):
         super(SamplerWorker, self).__init__()
 
         env_fns = [make_env(env_name) for _ in range(batch_size)]
@@ -169,6 +172,7 @@ class SamplerWorker(mp.Process):
         self.task_queue = task_queue
         self.train_queue = train_queue
         self.valid_queue = valid_queue
+        self.policy_lock = policy_lock
 
     def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, tau=1.0, device='cpu'):
         # Sample the training trajectories with the initial policy
@@ -186,13 +190,14 @@ class SamplerWorker(mp.Process):
         # uses `first_order=True` no matter if the second order version of MAML
         # is used since this is only used for sampling trajectories, and not
         # for optimization.
-        params = None
-        for _ in range(num_steps):
-            loss = reinforce_loss(self.policy, train_episodes, params=params)
-            params = self.policy.update_params(loss,
-                                               params=params,
-                                               step_size=fast_lr,
-                                               first_order=True)
+        with self.policy_lock:
+            params = None
+            for _ in range(num_steps):
+                loss = reinforce_loss(self.policy, train_episodes, params=params)
+                params = self.policy.update_params(loss,
+                                                   params=params,
+                                                   step_size=fast_lr,
+                                                   first_order=True)
 
         # Sample the validation trajectories with the adapted policy
         valid_episodes = BatchEpisodes(batch_size=self.batch_size,
@@ -209,8 +214,9 @@ class SamplerWorker(mp.Process):
         with torch.no_grad():
             while not dones.all():
                 observations_tensor = torch.from_numpy(observations)
-                pi = self.policy(observations_tensor, params=params)
-                actions_tensor = pi.sample()
+                with self.policy_lock:
+                    pi = self.policy(observations_tensor, params=params)
+                    actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
 
                 new_observations, rewards, new_dones, infos = self.envs.step(actions)
