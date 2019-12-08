@@ -134,22 +134,16 @@ if __name__ == '__main__':
     misc.add_argument('--output-folder', type=str, default='maml',
         help='name of the output folder (default: maml)')
     misc.add_argument('--seed', type=int, default=1,
-        help='random seed')
+        help='random seed (default: 1)')
     misc.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
-        help='number of workers for trajectories sampling')
-    misc.add_argument('--device', type=str, default='cpu',
-        help='set the device (cpu or cuda, default: cpu)')
+        help='number of workers for trajectories sampling (default: '
+             '{0})'.format(mp.cpu_count() - 1))
+    misc.add_argument('--use-cuda', action='store_true',
+        help='use cuda (default: false, use cpu)')
 
     args = parser.parse_args()
+    args.device = 'cuda' if args.use_cuda else 'cpu'
 
-    # Create logs and saves folder if they don't exist
-    if not os.path.exists('./logs'):
-        os.makedirs('./logs')
-    if not os.path.exists('./saves'):
-        os.makedirs('./saves')
-    # Device
-    args.device = torch.device(args.device
-        if torch.cuda.is_available() else 'cpu')
     # Slurm
     if 'SLURM_JOB_ID' in os.environ:
         args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])
