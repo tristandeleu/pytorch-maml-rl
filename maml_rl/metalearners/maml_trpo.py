@@ -85,7 +85,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
                                dim=0,
                                weights=mask)
 
-        return loss, kl, params, old_pi
+        return loss, kl, old_pi
 
     def step(self,
              train_episodes,
@@ -102,7 +102,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
                                                          valid,
                                                          old_pi=None)
             for (train, valid) in zip(train_episodes, valid_episodes)])
-        old_losses, old_kls, parameters, old_pis = zip(
+        old_losses, old_kls, old_pis = zip(
             *self._event_loop.run_until_complete(coroutine))
 
         old_loss = sum(old_losses) / num_tasks
@@ -120,7 +120,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
                                      cg_iters=cg_iters)
 
         # Compute the Lagrange multiplier
-        shs = 0.5 * torch.dot(stepdir, hessian_vector_product(stepdir, retain_graph=False))
+        shs = 0.5 * torch.dot(stepdir,
+                              hessian_vector_product(stepdir, retain_graph=False))
         lagrange_multiplier = torch.sqrt(shs / max_kl)
 
         step = stepdir / lagrange_multiplier
@@ -140,8 +141,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
                 for (train, valid, old_pi)
                 in zip(train_episodes, valid_episodes, old_pis)])
 
-            losses, kls, _, _ = zip(
-                *self._event_loop.run_until_complete(coroutine))
+            losses, kls, _ = zip(*self._event_loop.run_until_complete(coroutine))
             improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks
             if (improve.item() < 0.0) and (kl.item() < max_kl):

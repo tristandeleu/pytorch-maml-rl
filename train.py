@@ -8,11 +8,8 @@ from maml_rl.metalearners import MAMLTRPO
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
+from maml_rl.utils.reinforcement_learning import get_returns
 
-def total_rewards(episodes_rewards, aggregation=torch.mean):
-    rewards = torch.mean(torch.stack([aggregation(torch.sum(rewards, dim=0))
-        for rewards in episodes_rewards], dim=0))
-    return rewards.item()
 
 def main(args):
     save_folder = './saves/{0}'.format(args.output_folder)
@@ -66,6 +63,9 @@ def main(args):
                          ls_backtrack_ratio=args.ls_backtrack_ratio)
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
+
+        train_returns = get_returns(train_episodes)
+        valid_returns = get_returns(valid_episodes)
 
 
 if __name__ == '__main__':
