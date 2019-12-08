@@ -1,8 +1,9 @@
 import numpy as np
-
 import gym
+
 from gym import spaces
 from gym.utils import seeding
+
 
 class BernoulliBanditEnv(gym.Env):
     """Multi-armed bandit problems with Bernoulli observations, as described
@@ -52,6 +53,7 @@ class BernoulliBanditEnv(gym.Env):
         observation = np.zeros(1, dtype=np.float32)
 
         return observation, reward, True, self._task
+
 
 class GaussianBanditEnv(gym.Env):
     """Multi-armed problems with Gaussian observations.

@@ -1,6 +1,8 @@
 import numpy as np
 import gym
+
 from gym import spaces
+
 
 class NormalizedActionWrapper(gym.ActionWrapper):
     """Environment wrapper to normalize the action space to [-1, 1]. This 
@@ -32,6 +34,7 @@ class NormalizedActionWrapper(gym.ActionWrapper):
         action = np.clip(action, -1.0, 1.0)
         return action
 
+
 class NormalizedObservationWrapper(gym.ObservationWrapper):
     """Environment wrapper to normalize the observations with a running mean 
     and standard deviation. This wrapper is adapted from rllab's [1] 
@@ -55,6 +58,7 @@ class NormalizedObservationWrapper(gym.ObservationWrapper):
         self._mean = (1.0 - self.alpha) * self._mean + self.alpha * observation
         self._var = (1.0 - self.alpha) * self._var + self.alpha * np.square(observation - self._mean)
         return (observation - self._mean) / (np.sqrt(self._var) + self.epsilon)
+
 
 class NormalizedRewardWrapper(gym.RewardWrapper):
     """Environment wrapper to normalize the rewards with a running mean 

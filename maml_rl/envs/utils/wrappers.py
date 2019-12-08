@@ -1,5 +1,6 @@
 from gym.envs.registration import load
-from .normalized_env import NormalizedActionWrapper
+
+from maml_rl.envs.utils.normalized_env import NormalizedActionWrapper
 
 def mujoco_wrapper(entry_point, **kwargs):
     # Load the environment from its entry point

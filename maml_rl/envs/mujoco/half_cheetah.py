@@ -1,5 +1,7 @@
 import numpy as np
+
 from gym.envs.mujoco import HalfCheetahEnv as HalfCheetahEnv_
+
 
 class HalfCheetahEnv(HalfCheetahEnv_):
     def _get_obs(self):
@@ -27,6 +29,7 @@ class HalfCheetahEnv(HalfCheetahEnv_):
         elif mode == 'human':
             self._get_viewer().render()
 
+
 class HalfCheetahVelEnv(HalfCheetahEnv):
     """Half-cheetah environment with target velocity, as described in [1]. The 
     code is adapted from
@@ -45,8 +48,11 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
-    def __init__(self, task={}):
+    def __init__(self, task={}, low=0.0, high=2.0):
         self._task = task
+        self.low = low
+        self.high = high
+
         self._goal_vel = task.get('velocity', 0.0)
         super(HalfCheetahVelEnv, self).__init__()
 
@@ -67,13 +73,14 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
-        velocities = self.np_random.uniform(0.0, 2.0, size=(num_tasks,))
+        velocities = self.np_random.uniform(self.low, self.high, size=(num_tasks,))
         tasks = [{'velocity': velocity} for velocity in velocities]
         return tasks
 
     def reset_task(self, task):
         self._task = task
         self._goal_vel = task['velocity']
+
 
 class HalfCheetahDirEnv(HalfCheetahEnv):
     """Half-cheetah environment with target direction, as described in [1]. The 

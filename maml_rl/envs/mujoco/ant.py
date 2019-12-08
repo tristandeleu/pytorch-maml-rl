@@ -1,5 +1,7 @@
 import numpy as np
+
 from gym.envs.mujoco import AntEnv as AntEnv_
+
 
 class AntEnv(AntEnv_):
     @property
@@ -38,6 +40,7 @@ class AntEnv(AntEnv_):
         elif mode == 'human':
             self._get_viewer().render()
 
+
 class AntVelEnv(AntEnv):
     """Ant environment with target velocity, as described in [1]. The 
     code is adapted from
@@ -56,8 +59,11 @@ class AntVelEnv(AntEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
-    def __init__(self, task={}):
+    def __init__(self, task={}, low=0.0, high=3.0):
         self._task = task
+        self.low = low
+        self.high = high
+
         self._goal_vel = task.get('velocity', 0.0)
         self._action_scaling = None
         super(AntVelEnv, self).__init__()
@@ -87,13 +93,14 @@ class AntVelEnv(AntEnv):
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
-        velocities = self.np_random.uniform(0.0, 3.0, size=(num_tasks,))
+        velocities = self.np_random.uniform(self.low, self.high, size=(num_tasks,))
         tasks = [{'velocity': velocity} for velocity in velocities]
         return tasks
 
     def reset_task(self, task):
         self._task = task
         self._goal_vel = task['velocity']
+
 
 class AntDirEnv(AntEnv):
     """Ant environment with target direction, as described in [1]. The 
@@ -152,6 +159,7 @@ class AntDirEnv(AntEnv):
         self._task = task
         self._goal_dir = task['direction']
 
+
 class AntPosEnv(AntEnv):
     """Ant environment with target position. The code is adapted from
     https://github.com/cbfinn/maml_rl/blob/9c8e2ebd741cb0c7b8bf2d040c4caeeb8e06cc95/rllab/envs/mujoco/ant_env_rand_goal.py
@@ -166,8 +174,11 @@ class AntPosEnv(AntEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
-    def __init__(self, task={}):
+    def __init__(self, task={}, low=-3.0, high=3.0):
         self._task = task
+        self.low = low
+        self.high = high
+
         self._goal_pos = task.get('position', np.zeros((2,), dtype=np.float32))
         self._action_scaling = None
         super(AntPosEnv, self).__init__()
@@ -195,7 +206,7 @@ class AntPosEnv(AntEnv):
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
-        positions = self.np_random.uniform(-3.0, 3.0, size=(num_tasks, 2))
+        positions = self.np_random.uniform(self.low, self.high, size=(num_tasks, 2))
         tasks = [{'position': position} for position in positions]
         return tasks
 

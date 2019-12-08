@@ -1,8 +1,9 @@
 import numpy as np
-
 import gym
+
 from gym import spaces
 from gym.utils import seeding
+
 
 class Navigation2DEnv(gym.Env):
     """2D navigation problems, as described in [1]. The code is adapted from 
@@ -18,8 +19,10 @@ class Navigation2DEnv(gym.Env):
         Meta-Learning for Fast Adaptation of Deep Networks", 2017 
         (https://arxiv.org/abs/1703.03400)
     """
-    def __init__(self, task={}):
+    def __init__(self, task={}, low=-0.5, high=0.5):
         super(Navigation2DEnv, self).__init__()
+        self.low = low
+        self.high = high
 
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
             shape=(2,), dtype=np.float32)
@@ -36,7 +39,7 @@ class Navigation2DEnv(gym.Env):
         return [seed]
 
     def sample_tasks(self, num_tasks):
-        goals = self.np_random.uniform(-0.5, 0.5, size=(num_tasks, 2))
+        goals = self.np_random.uniform(self.low, self.high, size=(num_tasks, 2))
         tasks = [{'goal': goal} for goal in goals]
         return tasks
 
