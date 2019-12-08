@@ -24,10 +24,14 @@ def value_iteration_finite_horizon(transitions, rewards, horizon=10, gamma=0.95)
     return values
 
 def reinforce_loss(policy, episodes, params=None):
-    pi = policy(episodes.observations, params=params)
-    log_probs = pi.log_prob(episodes.actions)
+    pi = policy(episodes.observations.view((-1, *episodes.observation_shape)),
+                params=params)
+
+    log_probs = pi.log_prob(episodes.actions.view((-1, *episodes.action_shape)))
+    log_probs = log_probs.view_as(episodes.actions)
     if log_probs.dim() > 2:
         log_probs = log_probs.sum(dim=2)
+
     loss = -weighted_mean(log_probs * episodes.advantages,
                           dim=0, weights=episodes.mask)
 

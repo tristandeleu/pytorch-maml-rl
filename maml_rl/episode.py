@@ -14,6 +14,9 @@ class BatchEpisodes(object):
         self._actions_list = [[] for _ in range(batch_size)]
         self._rewards_list = [[] for _ in range(batch_size)]
 
+        self._observation_shape = None
+        self._action_shape = None
+
         self._observations = None
         self._actions = None
         self._rewards = None
@@ -21,6 +24,18 @@ class BatchEpisodes(object):
         self._mask = None
         self._advantages = None
         self._lengths = None
+
+    @property
+    def observation_shape(self):
+        if self._observation_shape is None:
+            self._observation_shape = self.observations.shape[2:]
+        return self._observation_shape
+
+    @property
+    def action_shape(self):
+        if self._action_shape is None:
+            self._action_shape = self.actions.shape[2:]
+        return self._action_shape
 
     @property
     def observations(self):
