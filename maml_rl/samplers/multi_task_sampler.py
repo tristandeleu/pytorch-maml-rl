@@ -94,19 +94,19 @@ class MultiTaskSampler(Sampler):
 
         return (train_episodes_futures, valid_episodes_futures)
 
-    async def sample_wait(self, episodes_futures):
-        train_futures, valid_futures = episodes_futures
-        # Gather the train and valid episodes
-        train_episodes = await asyncio.gather(*train_futures)
-        valid_episodes = await asyncio.gather(*valid_futures)
-        self._join_consumer_threads()
+    def sample_wait(self, episodes_futures):
+        async def _wait(train_futures, valid_futures):
+            # Gather the train and valid episodes
+            train_episodes = await asyncio.gather(*train_futures)
+            valid_episodes = await asyncio.gather(*valid_futures)
+            self._join_consumer_threads()
+            return (train_episodes, valid_episodes)
 
-        return (train_episodes, valid_episodes)
+        return self._event_loop.run_until_complete(_wait(*episodes_futures))
 
     def sample(self, tasks, **kwargs):
         results = self.sample_async(tasks, **kwargs)
-        coroutine = self.sample_wait(results)
-        return self._event_loop.run_until_complete(coroutine)
+        return self.sample_wait(results)
 
     @property
     def train_consumer_thread(self):

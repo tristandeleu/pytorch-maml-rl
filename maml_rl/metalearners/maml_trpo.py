@@ -37,14 +37,6 @@ class MAMLTRPO(GradientBasedMetaLearner):
                                                first_order=first_order)
         return params
 
-    def sample_async(self, tasks, gamma=0.95, tau=1.0):
-        return self.sampler.sample_async(tasks,
-                                         num_steps=self.num_steps,
-                                         fast_lr=self.fast_lr,
-                                         gamma=gamma,
-                                         tau=tau,
-                                         device=self.device.type)
-
     def hessian_vector_product(self, kl, damping=1e-2):
         grads = torch.autograd.grad(kl,
                                     self.policy.parameters(),

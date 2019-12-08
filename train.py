@@ -54,21 +54,20 @@ def main(args):
 
     for batch in trange(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
-        train_episodes, valid_episodes = metalearner.sample_async(tasks,
-                                                                  gamma=args.gamma,
-                                                                  tau=args.tau)
-        metalearner.step(train_episodes,
-                         valid_episodes,
+        futures = sampler.sample_async(tasks,
+                                       num_steps=args.num_steps,
+                                       fast_lr=args.fast_lr,
+                                       gamma=args.gamma,
+                                       tau=args.tau,
+                                       device=args.device)
+        metalearner.step(*futures,
                          max_kl=args.max_kl,
                          cg_iters=args.cg_iters,
                          cg_damping=args.cg_damping,
                          ls_max_steps=args.ls_max_steps,
                          ls_backtrack_ratio=args.ls_backtrack_ratio)
 
-        # Save policy network
-        with open(os.path.join(save_folder,
-                'policy-{0}.pt'.format(batch)), 'wb') as f:
-            torch.save(policy.state_dict(), f)
+        train_episodes, valid_episodes = sampler.sample_wait(futures)
 
 
 if __name__ == '__main__':
