@@ -174,7 +174,7 @@ class SamplerWorker(mp.Process):
         self.valid_queue = valid_queue
         self.policy_lock = policy_lock
 
-    def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, tau=1.0, device='cpu'):
+    def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, gae_lambda=1.0, device='cpu'):
         # Sample the training trajectories with the initial policy
         train_episodes = BatchEpisodes(batch_size=self.batch_size,
                                        gamma=gamma,
@@ -182,7 +182,7 @@ class SamplerWorker(mp.Process):
         for item in self.sample_trajectories():
             train_episodes.append(*item)
         self.baseline.fit(train_episodes)
-        train_episodes.compute_advantages(self.baseline, tau=tau, normalize=True)
+        train_episodes.compute_advantages(self.baseline, gae_lambda=gae_lambda, normalize=True)
         self.train_queue.put((index, train_episodes))
 
         # Adapt the policy to the task, based on the REINFORCE loss computed on
@@ -205,7 +205,7 @@ class SamplerWorker(mp.Process):
                                        device=device)
         for item in self.sample_trajectories(params=params):
             valid_episodes.append(*item)
-        valid_episodes.compute_advantages(self.baseline, tau=tau, normalize=True)
+        valid_episodes.compute_advantages(self.baseline, gae_lambda=gae_lambda, normalize=True)
         self.valid_queue.put((index, valid_episodes))
 
     def sample_trajectories(self, params=None):

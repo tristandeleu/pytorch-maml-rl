@@ -112,7 +112,7 @@ class BatchEpisodes(object):
             self._actions_list[batch_id].append(action.astype(np.float32))
             self._rewards_list[batch_id].append(reward.astype(np.float32))
 
-    def compute_advantages(self, baseline, tau=1.0, normalize=True):
+    def compute_advantages(self, baseline, gae_lambda=1.0, normalize=True):
         # Compute the values based on the baseline
         values = baseline(self).squeeze(2).detach()
         # Add an additional 0 at the end of values for
@@ -124,7 +124,7 @@ class BatchEpisodes(object):
         self._advantages = torch.zeros_like(deltas, dtype=torch.float32)
         gae = torch.zeros_like(deltas[0], dtype=torch.float32)
         for i in range(len(self) - 1, -1, -1):
-            gae = gae * self.gamma * tau + deltas[i]
+            gae = gae * self.gamma * gae_lambda + deltas[i]
             self._advantages[i] = gae
 
         # Normalize the advantages

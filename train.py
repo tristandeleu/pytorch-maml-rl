@@ -53,7 +53,7 @@ def main(args):
                                        num_steps=args.num_steps,
                                        fast_lr=args.fast_lr,
                                        gamma=args.gamma,
-                                       tau=args.tau,
+                                       gae_lambda=args.gae_lambda,
                                        device=args.device)
         metalearner.step(*futures,
                          max_kl=args.max_kl,
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         help='name of the environment')
     general.add_argument('--gamma', type=float, default=0.95,
         help='value of the discount factor gamma (default: 0.95)')
-    general.add_argument('--tau', type=float, default=1.0,
+    general.add_argument('--gae-lambda', type=float, default=1.0,
         help='value of the discount factor for GAE (default: 1.0)')
     general.add_argument('--first-order', action='store_true',
         help='use the first-order approximation of MAML')
