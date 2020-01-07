@@ -52,7 +52,7 @@ class BernoulliBanditEnv(gym.Env):
         reward = self.np_random.binomial(1, mean)
         observation = np.zeros(1, dtype=np.float32)
 
-        return observation, reward, True, self._task
+        return observation, reward, True, {'task': self._task}
 
 
 class GaussianBanditEnv(gym.Env):
@@ -99,4 +99,4 @@ class GaussianBanditEnv(gym.Env):
         reward = self.np_random.normal(mean, self.std)
         observation = np.zeros(1, dtype=np.float32)
 
-        return observation, reward, True, self._task
+        return observation, reward, True, {'task': self._task}

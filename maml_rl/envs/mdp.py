@@ -73,4 +73,4 @@ class TabularMDPEnv(gym.Env):
         observation = np.zeros(self.num_states, dtype=np.float32)
         observation[self._state] = 1.0
 
-        return observation, reward, False, self._task
+        return observation, reward, False, {'task': self._task}

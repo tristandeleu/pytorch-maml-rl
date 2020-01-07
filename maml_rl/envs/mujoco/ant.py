@@ -87,9 +87,11 @@ class AntVelEnv(AntEnv):
         notdone = np.isfinite(state).all() \
             and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
-        infos = dict(reward_forward=forward_reward, reward_ctrl=-ctrl_cost,
-            reward_contact=-contact_cost, reward_survive=survive_reward,
-            task=self._task)
+        infos = dict(reward_forward=forward_reward,
+                     reward_ctrl=-ctrl_cost,
+                     reward_contact=-contact_cost,
+                     reward_survive=survive_reward,
+                     task=self._task)
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
@@ -145,9 +147,11 @@ class AntDirEnv(AntEnv):
         notdone = np.isfinite(state).all() \
             and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
-        infos = dict(reward_forward=forward_reward, reward_ctrl=-ctrl_cost,
-            reward_contact=-contact_cost, reward_survive=survive_reward,
-            task=self._task)
+        infos = dict(reward_forward=forward_reward,
+                     reward_ctrl=-ctrl_cost,
+                     reward_contact=-contact_cost,
+                     reward_survive=survive_reward,
+                     task=self._task)
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
@@ -200,9 +204,11 @@ class AntPosEnv(AntEnv):
         notdone = np.isfinite(state).all() \
             and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
-        infos = dict(reward_goal=goal_reward, reward_ctrl=-ctrl_cost,
-            reward_contact=-contact_cost, reward_survive=survive_reward,
-            task=self._task)
+        infos = dict(reward_goal=goal_reward,
+                     reward_ctrl=-ctrl_cost,
+                     reward_contact=-contact_cost,
+                     reward_survive=survive_reward,
+                     task=self._task)
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):

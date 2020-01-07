@@ -69,7 +69,8 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         reward = forward_reward - ctrl_cost
         done = False
         infos = dict(reward_forward=forward_reward,
-            reward_ctrl=-ctrl_cost, task=self._task)
+                     reward_ctrl=-ctrl_cost,
+                     task=self._task)
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
@@ -118,7 +119,8 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         reward = forward_reward - ctrl_cost
         done = False
         infos = dict(reward_forward=forward_reward,
-            reward_ctrl=-ctrl_cost, task=self._task)
+                     reward_ctrl=-ctrl_cost,
+                     task=self._task)
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
