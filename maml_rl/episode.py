@@ -47,7 +47,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 observations[:length, i] = np.stack(self._observations_list[i], axis=0)
-            self._observations = torch.from_numpy(observations).to(self.device)
+            self._observations = torch.as_tensor(observations, device=self.device)
         return self._observations
 
     @property
@@ -59,7 +59,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 actions[:length, i] = np.stack(self._actions_list[i], axis=0)
-            self._actions = torch.from_numpy(actions).to(self.device)
+            self._actions = torch.as_tensor(actions, device=self.device)
         return self._actions
 
     @property
@@ -69,7 +69,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
-            self._rewards = torch.from_numpy(rewards).to(self.device)
+            self._rewards = torch.as_tensor(rewards, device=self.device)
         return self._rewards
 
     @property
@@ -82,7 +82,7 @@ class BatchEpisodes(object):
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + rewards[i] * mask[i]
                 returns[i] = return_
-            self._returns = torch.from_numpy(returns).to(self.device)
+            self._returns = torch.as_tensor(returns, device=self.device)
         return self._returns
 
     @property
