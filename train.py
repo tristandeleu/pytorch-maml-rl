@@ -12,10 +12,12 @@ from maml_rl.utils.reinforcement_learning import get_returns
 
 
 def main(args):
-    save_folder = './saves/{0}'.format(args.output_folder)
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-    with open(os.path.join(save_folder, 'config.json'), 'w') as f:
+    if not os.path.exists(args.output_folder):
+        os.makedirs(args.output_folder)
+    policy_filename = os.path.join(args.output_folder, 'policy.th')
+    config_filename = os.path.join(args.output_folder, 'config.json')
+
+    with open(config_filename, 'w') as f:
         json.dump(vars(args), f, indent=2)
 
     torch.manual_seed(args.seed)
@@ -30,8 +32,10 @@ def main(args):
                                 hidden_sizes=hidden_sizes,
                                 nonlinearity=args.nonlinearity)
     policy.share_memory()
+
     # Baseline
     baseline = LinearFeatureBaseline(get_input_size(env))
+
     # Sampler
     sampler = MultiTaskSampler(args.env_name,
                                batch_size=args.fast_batch_size,
@@ -67,6 +71,10 @@ def main(args):
                     train_returns=get_returns(train_episodes),
                     valid_returns=get_returns(valid_episodes))
 
+        # Save policy
+        with open(policy_filename, 'wb') as f:
+            torch.save(policy.state_dict(), f)
+
 
 if __name__ == '__main__':
     import argparse
@@ -74,14 +82,14 @@ if __name__ == '__main__':
     import multiprocessing as mp
 
     parser = argparse.ArgumentParser(description='Reinforcement learning with '
-        'Model-Agnostic Meta-Learning (MAML)')
+        'Model-Agnostic Meta-Learning (MAML) - Train')
 
     parser.add_argument('--config', type=str, required=False, default=None,
         help='path to the configuration file (optional)')
 
     # General
     general = parser.add_argument_group('General')
-    general.add_argument('--env-name', type=str,
+    general.add_argument('--env-name', type=str, required=True,
         help='name of the environment')
     general.add_argument('--gamma', type=float, default=0.95,
         help='value of the discount factor gamma (default: 0.95)')
@@ -90,7 +98,7 @@ if __name__ == '__main__':
     general.add_argument('--first-order', action='store_true',
         help='use the first-order approximation of MAML')
 
-    # Policy network (relu activation function)
+    # Policy network
     policy = parser.add_argument_group('Policy network')
     policy.add_argument('--hidden-size', type=int, default=100,
         help='number of hidden units per layer (default: 100)')
@@ -128,7 +136,7 @@ if __name__ == '__main__':
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
-    misc.add_argument('--output-folder', type=str, default='maml',
+    misc.add_argument('--output-folder', type=str, required=True,
         help='name of the output folder (default: maml)')
     misc.add_argument('--seed', type=int, default=1,
         help='random seed (default: 1)')
@@ -140,9 +148,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     args.device = 'cuda' if args.use_cuda else 'cpu'
-
-    # Slurm
-    if 'SLURM_JOB_ID' in os.environ:
-        args.output_folder += '-{0}'.format(os.environ['SLURM_JOB_ID'])
 
     main(args)
