@@ -36,8 +36,7 @@ class MultiTaskSampler(Sampler):
                                                policy,
                                                seed=seed,
                                                env=env)
-        
-        self.policy.share_memory()
+
         self.num_workers = num_workers
 
         self.task_queue = mp.JoinableQueue()

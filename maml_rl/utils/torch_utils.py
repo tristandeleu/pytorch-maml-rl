@@ -2,6 +2,7 @@ import torch
 import numpy as np
 
 from torch.distributions import Categorical, Normal
+from torch.nn.utils.convert_parameters import _check_param_device
 
 def weighted_mean(tensor, dim=None, weights=None):
     if weights is None:
@@ -41,3 +42,16 @@ def to_numpy(tensor):
         return np.stack([to_numpy(t) for t in tensor], axis=0)
     else:
         raise NotImplementedError()
+
+def vector_to_parameters(vector, parameters):
+    param_device = None
+
+    pointer = 0
+    for param in parameters:
+        param_device = _check_param_device(param, param_device)
+
+        num_param = param.numel()
+        param.data.copy_(vector[pointer:pointer + num_param]
+                         .view_as(param).data)
+
+        pointer += num_param

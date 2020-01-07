@@ -29,6 +29,7 @@ def main(args):
     policy = get_policy_for_env(env,
                                 hidden_sizes=hidden_sizes,
                                 nonlinearity=args.nonlinearity)
+    policy.share_memory()
     # Baseline
     baseline = LinearFeatureBaseline(get_input_size(env))
     # Sampler
