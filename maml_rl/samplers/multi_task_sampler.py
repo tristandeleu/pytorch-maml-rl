@@ -63,6 +63,7 @@ class MultiTaskSampler(Sampler):
             worker.daemon = True
             worker.start()
 
+        self._waiting_sample = False
         self._event_loop = asyncio.get_event_loop()
         self._train_consumer_thread = None
         self._valid_consumer_thread = None
@@ -71,6 +72,12 @@ class MultiTaskSampler(Sampler):
         return self.env.unwrapped.sample_tasks(num_tasks)
 
     def sample_async(self, tasks, **kwargs):
+        if self._waiting_sample:
+            raise RuntimeError('Calling `sample_async` while waiting '
+                               'for a pending call to `sample_async` '
+                               'to complete. Please call `sample_wait` '
+                               'before calling `sample_async` again.')
+
         for index, task in enumerate(tasks):
             self.task_queue.put((index, task, kwargs))
 
@@ -92,17 +99,23 @@ class MultiTaskSampler(Sampler):
         self._valid_consumer_thread.daemon = True
         self._valid_consumer_thread.start()
 
+        self._waiting_sample = True
         return (train_episodes_futures, valid_episodes_futures)
 
     def sample_wait(self, episodes_futures):
+        if not self._waiting_sample:
+            raise RuntimeError('Calling `sample_wait` without any '
+                               'prior call to `sample_async`.')
+
         async def _wait(train_futures, valid_futures):
             # Gather the train and valid episodes
             train_episodes = await asyncio.gather(*train_futures)
             valid_episodes = await asyncio.gather(*valid_futures)
             self._join_consumer_threads()
             return (train_episodes, valid_episodes)
-
-        return self._event_loop.run_until_complete(_wait(*episodes_futures))
+        samples = self._event_loop.run_until_complete(_wait(*episodes_futures))
+        self._waiting_sample = False
+        return samples
 
     def sample(self, tasks, **kwargs):
         futures = self.sample_async(tasks, **kwargs)
