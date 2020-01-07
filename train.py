@@ -40,8 +40,7 @@ def main(args):
                                seed=args.seed,
                                num_workers=args.num_workers)
 
-    metalearner = MAMLTRPO(sampler,
-                           policy,
+    metalearner = MAMLTRPO(policy,
                            fast_lr=args.fast_lr,
                            num_steps=args.num_steps,
                            first_order=args.first_order,

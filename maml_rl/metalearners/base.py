@@ -5,17 +5,11 @@ from maml_rl.samplers import MultiTaskSampler
 
 
 class GradientBasedMetaLearner(object):
-    def __init__(self, sampler, policy, device='cpu'):
-        self.sampler = sampler
+    def __init__(self, policy, device='cpu'):
         self.device = torch.device(device)
-
         self.policy = policy
         self.policy.to(self.device)
-
-        if isinstance(sampler, MultiTaskSampler):
-            self._event_loop = self.sampler._event_loop
-        else:
-            self._event_loop = asyncio.get_event_loop()
+        self._event_loop = asyncio.get_event_loop()
 
     def adapt(self, episodes, *args, **kwargs):
         raise NotImplementedError()
@@ -29,4 +23,4 @@ class GradientBasedMetaLearner(object):
         return self.sampler.sample(tasks, **kwargs)
 
     def close(self):
-        self.sampler.close()
+        pass

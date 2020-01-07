@@ -14,13 +14,12 @@ from maml_rl.utils.reinforcement_learning import reinforce_loss
 
 class MAMLTRPO(GradientBasedMetaLearner):
     def __init__(self,
-                 sampler,
                  policy,
                  fast_lr=0.5,
                  num_steps=1,
                  first_order=False,
                  device='cpu'):
-        super(MAMLTRPO, self).__init__(sampler, policy, device=device)
+        super(MAMLTRPO, self).__init__(policy, device=device)
         self.fast_lr = fast_lr
         self.num_steps = num_steps
         self.first_order = first_order
@@ -155,8 +154,5 @@ class MAMLTRPO(GradientBasedMetaLearner):
             step_size *= ls_backtrack_ratio
         else:
             vector_to_parameters(old_params, self.policy.parameters())
-
-        if isinstance(self.sampler, MultiTaskSampler):
-            self.sampler._join_consumer_threads()
 
         return logs
