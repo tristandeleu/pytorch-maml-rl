@@ -31,15 +31,14 @@ class LinearFeatureBaseline(nn.Module):
     def _feature(self, episodes):
         ones = episodes.mask.unsqueeze(2)
         observations = episodes.observations * ones
-        cum_sum = torch.cumsum(ones, dim=0) * ones
-        al = cum_sum / 100.0
+        time_step = torch.arange(len(episodes)).view(-1, 1, 1) * ones / 100.0
 
         return torch.cat([
             observations,
             observations ** 2,
-            al,
-            al ** 2,
-            al ** 3,
+            time_step,
+            time_step ** 2,
+            time_step ** 3,
             ones
         ], dim=2)
 
