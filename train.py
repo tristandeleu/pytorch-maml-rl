@@ -55,17 +55,17 @@ def main(args):
                                        gamma=args.gamma,
                                        gae_lambda=args.gae_lambda,
                                        device=args.device)
-        metalearner.step(*futures,
-                         max_kl=args.max_kl,
-                         cg_iters=args.cg_iters,
-                         cg_damping=args.cg_damping,
-                         ls_max_steps=args.ls_max_steps,
-                         ls_backtrack_ratio=args.ls_backtrack_ratio)
+        logs = metalearner.step(*futures,
+                                max_kl=args.max_kl,
+                                cg_iters=args.cg_iters,
+                                cg_damping=args.cg_damping,
+                                ls_max_steps=args.ls_max_steps,
+                                ls_backtrack_ratio=args.ls_backtrack_ratio)
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
-
-        train_returns = get_returns(train_episodes)
-        valid_returns = get_returns(valid_episodes)
+        logs.update(tasks=tasks,
+                    train_returns=get_returns(train_episodes),
+                    valid_returns=get_returns(valid_episodes))
 
 
 if __name__ == '__main__':

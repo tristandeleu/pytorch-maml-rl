@@ -96,6 +96,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
              ls_max_steps=10,
              ls_backtrack_ratio=0.5):
         num_tasks = len(train_episodes)
+        logs = {}
 
         # Compute the surrogate loss
         coroutine = asyncio.gather(*[self.surrogate_loss(train,
@@ -152,3 +153,5 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
         if isinstance(self.sampler, MultiTaskSampler):
             self.sampler._join_consumer_threads()
+
+        return logs
