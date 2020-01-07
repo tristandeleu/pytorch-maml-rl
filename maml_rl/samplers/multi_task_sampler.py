@@ -80,26 +80,9 @@ class MultiTaskSampler(Sampler):
         for index, task in enumerate(tasks):
             self.task_queue.put((index, task, kwargs))
 
-        # Start train episodes consumer thread
-        train_episodes_futures = [self._event_loop.create_future() for _ in tasks]
-        self._train_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.train_episodes_queue, train_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='train-consumer')
-        self._train_consumer_thread.daemon = True
-        self._train_consumer_thread.start()
-
-        # Start valid episodes consumer thread
-        valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
-        self._valid_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.valid_episodes_queue, valid_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='valid-consumer')
-        self._valid_consumer_thread.daemon = True
-        self._valid_consumer_thread.start()
-
+        futures = self._start_consumer_threads(tasks)
         self._waiting_sample = True
-        return (train_episodes_futures, valid_episodes_futures)
+        return futures
 
     def sample_wait(self, episodes_futures):
         if not self._waiting_sample:
@@ -131,6 +114,27 @@ class MultiTaskSampler(Sampler):
         if self._valid_consumer_thread is None:
             raise ValueError()
         return self._valid_consumer_thread
+
+    def _start_consumer_threads(self, tasks):
+        # Start train episodes consumer thread
+        train_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        self._train_consumer_thread = threading.Thread(target=_create_consumer,
+            args=(self.train_episodes_queue, train_episodes_futures),
+            kwargs={'loop': self._event_loop},
+            name='train-consumer')
+        self._train_consumer_thread.daemon = True
+        self._train_consumer_thread.start()
+
+        # Start valid episodes consumer thread
+        valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        self._valid_consumer_thread = threading.Thread(target=_create_consumer,
+            args=(self.valid_episodes_queue, valid_episodes_futures),
+            kwargs={'loop': self._event_loop},
+            name='valid-consumer')
+        self._valid_consumer_thread.daemon = True
+        self._valid_consumer_thread.start()
+
+        return (train_episodes_futures, valid_episodes_futures)
 
     def _join_consumer_threads(self):
         if self._train_consumer_thread is not None:
