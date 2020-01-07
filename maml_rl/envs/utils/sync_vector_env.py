@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy
 
 from gym.vector import SyncVectorEnv as SyncVectorEnv_
 from gym.vector.utils import concatenate, create_empty_array
@@ -30,7 +29,6 @@ class SyncVectorEnv(SyncVectorEnv_):
         batch_ids, j = [], 0
         num_actions = len(self._actions)
         rewards = np.zeros((num_actions,), dtype=np.float_)
-        dones = deepcopy(self._dones)
         for i, env in enumerate(self.envs):
             if self._dones[i]:
                 continue
