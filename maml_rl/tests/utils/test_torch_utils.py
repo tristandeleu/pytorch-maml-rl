@@ -2,8 +2,11 @@ import pytest
 
 import numpy as np
 import torch
+import torch.nn as nn
 
-from maml_rl.utils.torch_utils import weighted_mean, weighted_normalize
+from maml_rl.utils.torch_utils import (weighted_mean, weighted_normalize,
+                                       vector_to_parameters)
+
 
 def test_weighted_mean_no_dim():
     lengths = [2, 3, 5, 7, 11]
@@ -26,7 +29,8 @@ def test_weighted_mean_no_dim():
     mean_np = sum_np / num_np
 
     assert mean_th.dim() == 0
-    assert np.allclose(mean_th.item(), mean_np)
+    np.testing.assert_allclose(mean_th.item(), mean_np)
+
 
 def test_weighted_mean_dim():
     lengths = [2, 3, 5, 7, 11]
@@ -51,4 +55,48 @@ def test_weighted_mean_dim():
     mean_np = np.mean(sum_np)
 
     assert mean_th.dim() == 0
-    assert np.allclose(mean_th.item(), mean_np)
+    np.testing.assert_allclose(mean_th.item(), mean_np)
+
+
+def test_vector_to_parameters_no_shared_memory():
+    model = nn.Sequential(
+        nn.Linear(2, 3, bias=True),
+        nn.Linear(3, 5, bias=True))
+    num_params = (2 * 3) + 3 + (3 * 5) + 5
+    vector_np = np.random.rand(num_params).astype(np.float32)
+    vector = torch.from_numpy(vector_np)
+
+    vector_to_parameters(vector, model.parameters())
+    pointer = 0
+    for param in model.parameters():
+        num_param = param.numel()
+        param_np = param.view(-1).detach().numpy()
+
+        np.testing.assert_array_equal(param_np, vector_np[pointer:pointer + num_param])
+
+        pointer += num_param
+
+
+def test_vector_to_parameters_shared_memory():
+    model = nn.Sequential(
+        nn.Linear(2, 3, bias=True),
+        nn.Linear(3, 5, bias=True))
+    model.share_memory()
+
+    for param in model.parameters():
+        assert param.data.is_shared()
+
+    num_params = (2 * 3) + 3 + (3 * 5) + 5
+    vector_np = np.random.rand(num_params).astype(np.float32)
+    vector = torch.from_numpy(vector_np)
+
+    vector_to_parameters(vector, model.parameters())
+    pointer = 0
+    for param in model.parameters():
+        num_param = param.numel()
+        param_np = param.view(-1).detach().numpy()
+
+        np.testing.assert_array_equal(param_np, vector_np[pointer:pointer + num_param])
+        assert param.data.is_shared()
+
+        pointer += num_param
