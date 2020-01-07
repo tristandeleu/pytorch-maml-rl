@@ -254,18 +254,17 @@ class SamplerWorker(mp.Process):
 
     def sample_trajectories(self, params=None):
         observations = self.envs.reset()
-        dones = self.envs._dones
         with torch.no_grad():
-            while not dones.all():
+            while not self.envs.dones.all():
                 observations_tensor = torch.from_numpy(observations)
                 pi = self.policy(observations_tensor, params=params)
                 actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
 
-                new_observations, rewards, new_dones, infos = self.envs.step(actions)
+                new_observations, rewards, _, infos = self.envs.step(actions)
                 batch_ids = infos['batch_ids']
                 yield (observations, actions, rewards, batch_ids)
-                observations, dones = new_observations, new_dones
+                observations = new_observations
 
     def run(self):
         while True:

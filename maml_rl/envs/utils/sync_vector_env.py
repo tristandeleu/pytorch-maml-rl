@@ -20,6 +20,10 @@ class SyncVectorEnv(SyncVectorEnv_):
                                  'meta-learning environment. It does not have '
                                  'the method `reset_task` implemented.')
 
+    @property
+    def dones(self):
+        return self._dones
+
     def reset_task(self, task):
         for env in self.envs:
             env.unwrapped.reset_task(task)
