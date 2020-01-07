@@ -7,7 +7,7 @@ from torch.distributions.kl import kl_divergence
 
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.metalearners.base import GradientBasedMetaLearner
-from maml_rl.utils.torch_utils import weighted_mean, detach_distribution
+from maml_rl.utils.torch_utils import weighted_mean, detach_distribution, to_numpy
 from maml_rl.utils.optimization import conjugate_gradient
 from maml_rl.utils.reinforcement_learning import reinforce_loss
 
@@ -106,6 +106,9 @@ class MAMLTRPO(GradientBasedMetaLearner):
         old_losses, old_kls, old_pis = zip(
             *self._event_loop.run_until_complete(coroutine))
 
+        logs['loss_before'] = to_numpy(old_losses)
+        logs['kl_before'] = to_numpy(old_kls)
+
         old_loss = sum(old_losses) / num_tasks
         grads = torch.autograd.grad(old_loss,
                                     self.policy.parameters(),
@@ -146,6 +149,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
             improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks
             if (improve.item() < 0.0) and (kl.item() < max_kl):
+                logs['loss_after'] = to_numpy(losses)
+                logs['kl_after'] = to_numpy(kls)
                 break
             step_size *= ls_backtrack_ratio
         else:

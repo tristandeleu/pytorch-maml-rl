@@ -1,6 +1,6 @@
 import numpy as np
 
-from maml_rl.utils.torch_utils import weighted_mean
+from maml_rl.utils.torch_utils import weighted_mean, to_numpy
 
 def value_iteration(transitions, rewards, gamma=0.95, theta=1e-5):
     rewards = np.expand_dims(rewards, axis=2)
@@ -24,8 +24,7 @@ def value_iteration_finite_horizon(transitions, rewards, horizon=10, gamma=0.95)
     return values
 
 def get_returns(episodes):
-    return np.stack([episode.rewards.sum(dim=0).cpu().numpy()
-                    for episode in episodes])
+    return to_numpy([episode.rewards.sum(dim=0) for episode in episodes])
 
 def reinforce_loss(policy, episodes, params=None):
     pi = policy(episodes.observations.view((-1, *episodes.observation_shape)),
