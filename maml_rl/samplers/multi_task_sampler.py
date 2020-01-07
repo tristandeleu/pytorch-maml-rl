@@ -105,8 +105,8 @@ class MultiTaskSampler(Sampler):
         return self._event_loop.run_until_complete(_wait(*episodes_futures))
 
     def sample(self, tasks, **kwargs):
-        results = self.sample_async(tasks, **kwargs)
-        return self.sample_wait(results)
+        futures = self.sample_async(tasks, **kwargs)
+        return self.sample_wait(futures)
 
     @property
     def train_consumer_thread(self):
@@ -214,9 +214,8 @@ class SamplerWorker(mp.Process):
         with torch.no_grad():
             while not dones.all():
                 observations_tensor = torch.from_numpy(observations)
-                with self.policy_lock:
-                    pi = self.policy(observations_tensor, params=params)
-                    actions_tensor = pi.sample()
+                pi = self.policy(observations_tensor, params=params)
+                actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
 
                 new_observations, rewards, new_dones, infos = self.envs.step(actions)
