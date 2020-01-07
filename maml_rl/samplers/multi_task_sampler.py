@@ -2,6 +2,9 @@ import torch
 import torch.multiprocessing as mp
 import asyncio
 import threading
+import time
+
+from datetime import datetime, timezone
 from copy import deepcopy
 
 from maml_rl.samplers.sampler import Sampler, make_env
@@ -19,6 +22,7 @@ def _create_consumer(queue, futures, loop=None):
             break
         index, episodes = data
         if not futures[index].cancelled():
+            episodes.log('_dequeueAt', datetime.now(timezone.utc))
             loop.call_soon_threadsafe(futures[index].set_result, episodes)
 
 
@@ -190,17 +194,30 @@ class SamplerWorker(mp.Process):
         self.valid_queue = valid_queue
         self.policy_lock = policy_lock
 
-    def sample(self, index, num_steps=1, fast_lr=0.5, gamma=0.95, gae_lambda=1.0, device='cpu'):
+    def sample(self,
+               index,
+               num_steps=1,
+               fast_lr=0.5,
+               gamma=0.95,
+               gae_lambda=1.0,
+               device='cpu'):
         # Sample the training trajectories with the initial policy
         train_episodes = BatchEpisodes(batch_size=self.batch_size,
                                        gamma=gamma,
                                        device=device)
+        train_episodes.log('_createdAt', datetime.now(timezone.utc))
+        train_episodes.log('process_name', self.name)
+
+        train_t0 = time.time()
         for item in self.sample_trajectories():
             train_episodes.append(*item)
+        train_episodes.log('duration', time.time() - train_t0)
+
         self.baseline.fit(train_episodes)
         train_episodes.compute_advantages(self.baseline,
                                           gae_lambda=gae_lambda,
                                           normalize=True)
+        train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
         self.train_queue.put((index, train_episodes))
 
         # Adapt the policy to the task, based on the REINFORCE loss computed on
@@ -221,11 +238,18 @@ class SamplerWorker(mp.Process):
         valid_episodes = BatchEpisodes(batch_size=self.batch_size,
                                        gamma=gamma,
                                        device=device)
+        valid_episodes.log('_createdAt', datetime.now(timezone.utc))
+        valid_episodes.log('process_name', self.name)
+
+        valid_t0 = time.time()
         for item in self.sample_trajectories(params=params):
             valid_episodes.append(*item)
+        valid_episodes.log('duration', time.time() - valid_t0)
+
         valid_episodes.compute_advantages(self.baseline,
                                           gae_lambda=gae_lambda,
                                           normalize=True)
+        valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
         self.valid_queue.put((index, valid_episodes))
 
     def sample_trajectories(self, params=None):

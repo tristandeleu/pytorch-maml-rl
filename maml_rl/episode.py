@@ -24,6 +24,7 @@ class BatchEpisodes(object):
         self._mask = None
         self._advantages = None
         self._lengths = None
+        self._logs = {}
 
     @property
     def observation_shape(self):
@@ -111,6 +112,13 @@ class BatchEpisodes(object):
             self._observations_list[batch_id].append(observation.astype(np.float32))
             self._actions_list[batch_id].append(action.astype(np.float32))
             self._rewards_list[batch_id].append(reward.astype(np.float32))
+
+    @property
+    def logs(self):
+        return self._logs
+
+    def log(self, key, value):
+        self._logs[key] = value
 
     def compute_advantages(self, baseline, gae_lambda=1.0, normalize=True):
         # Compute the values based on the baseline
