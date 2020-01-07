@@ -16,8 +16,13 @@ class LinearFeatureBaseline(nn.Module):
         super(LinearFeatureBaseline, self).__init__()
         self.input_size = input_size
         self._reg_coeff = reg_coeff
-        self.linear = nn.Linear(self.feature_size, 1, bias=False)
-        self.linear.weight.data.zero_()
+
+        self.weight = nn.Parameter(torch.Tensor(1, self.feature_size),
+                                   requires_grad=False)
+        self.weight.data.zero_()
+        self._eye = torch.eye(self.feature_size,
+                              dtype=torch.float32,
+                              device=self.weight.device)
 
     @property
     def feature_size(self):
@@ -45,14 +50,11 @@ class LinearFeatureBaseline(nn.Module):
         returns = episodes.returns.view(-1, 1)
 
         reg_coeff = self._reg_coeff
-        eye = torch.eye(self.feature_size, dtype=torch.float32,
-                        device=self.linear.weight.device)
+        XT_y = torch.matmul(featmat.t(), returns)
+        XT_X = torch.matmul(featmat.t(), featmat)
         for _ in range(5):
             try:
-                coeffs, _ = torch.lstsq(
-                    torch.matmul(featmat.t(), returns),
-                    torch.matmul(featmat.t(), featmat) + reg_coeff * eye
-                )
+                coeffs, _ = torch.lstsq(XT_y, XT_X + reg_coeff * self._eye)
                 break
             except RuntimeError:
                 reg_coeff *= 10
@@ -61,8 +63,8 @@ class LinearFeatureBaseline(nn.Module):
                 '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
                 'matrix) is not full-rank, regardless of the regularization '
                 '(maximum regularization: {0}).'.format(reg_coeff))
-        self.linear.weight.data = coeffs.data.t()
+        self.weight.data.copy_(coeffs.data.t())
 
     def forward(self, episodes):
         features = self._feature(episodes)
-        return self.linear(features)
+        return F.linear(features, weight=self.weight, bias=None)
