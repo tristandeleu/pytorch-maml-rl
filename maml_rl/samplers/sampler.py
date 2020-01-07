@@ -9,11 +9,10 @@ def make_env(env_name, seed=None):
     return _make_env
 
 class Sampler(object):
-    def __init__(self, env_name, batch_size, policy, baseline, seed=None, env=None):
+    def __init__(self, env_name, batch_size, policy, seed=None, env=None):
         self.env_name = env_name
         self.batch_size = batch_size
         self.policy = policy
-        self.baseline = baseline
         self.seed = seed
 
         if env is None:

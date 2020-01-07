@@ -2,6 +2,7 @@ import torch
 import torch.multiprocessing as mp
 import asyncio
 import threading
+from copy import deepcopy
 
 from maml_rl.samplers.sampler import Sampler, make_env
 from maml_rl.envs.utils.sync_vector_env import SyncVectorEnv
@@ -33,7 +34,6 @@ class MultiTaskSampler(Sampler):
         super(MultiTaskSampler, self).__init__(env_name,
                                                batch_size,
                                                policy,
-                                               baseline,
                                                seed=seed,
                                                env=env)
         
@@ -51,7 +51,7 @@ class MultiTaskSampler(Sampler):
                                       self.env.observation_space,
                                       self.env.action_space,
                                       self.policy,
-                                      self.baseline,
+                                      deepcopy(baseline),
                                       self.seed,
                                       self.task_queue,
                                       self.train_episodes_queue,
@@ -182,7 +182,9 @@ class SamplerWorker(mp.Process):
         for item in self.sample_trajectories():
             train_episodes.append(*item)
         self.baseline.fit(train_episodes)
-        train_episodes.compute_advantages(self.baseline, gae_lambda=gae_lambda, normalize=True)
+        train_episodes.compute_advantages(self.baseline,
+                                          gae_lambda=gae_lambda,
+                                          normalize=True)
         self.train_queue.put((index, train_episodes))
 
         # Adapt the policy to the task, based on the REINFORCE loss computed on
@@ -205,7 +207,9 @@ class SamplerWorker(mp.Process):
                                        device=device)
         for item in self.sample_trajectories(params=params):
             valid_episodes.append(*item)
-        valid_episodes.compute_advantages(self.baseline, gae_lambda=gae_lambda, normalize=True)
+        valid_episodes.compute_advantages(self.baseline,
+                                          gae_lambda=gae_lambda,
+                                          normalize=True)
         self.valid_queue.put((index, valid_episodes))
 
     def sample_trajectories(self, params=None):
