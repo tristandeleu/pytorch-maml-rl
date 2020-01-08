@@ -93,7 +93,7 @@ class BatchEpisodes(object):
                                      device=self.device)
             for i in range(self.batch_size):
                 length = self.lengths[i]
-                self._mask[:length, i] = 1.0
+                self._mask[:length, i].fill_(1.0)
         return self._mask
 
     @property
