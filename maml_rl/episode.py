@@ -46,8 +46,11 @@ class BatchEpisodes(object):
                                     dtype=np.float32)
             for i in range(self.batch_size):
                 length = self.lengths[i]
-                observations[:length, i] = np.stack(self._observations_list[i], axis=0)
+                np.stack(self._observations_list[i],
+                         axis=0,
+                         out=observations[:length, i])
             self._observations = torch.as_tensor(observations, device=self.device)
+            del self._observations_list
         return self._observations
 
     @property
@@ -58,8 +61,9 @@ class BatchEpisodes(object):
                                dtype=np.float32)
             for i in range(self.batch_size):
                 length = self.lengths[i]
-                actions[:length, i] = np.stack(self._actions_list[i], axis=0)
+                np.stack(self._actions_list[i], axis=0, out=actions[:length, i])
             self._actions = torch.as_tensor(actions, device=self.device)
+            del self._actions_list
         return self._actions
 
     @property
@@ -68,8 +72,9 @@ class BatchEpisodes(object):
             rewards = np.zeros((len(self), self.batch_size), dtype=np.float32)
             for i in range(self.batch_size):
                 length = self.lengths[i]
-                rewards[:length, i] = np.stack(self._rewards_list[i], axis=0)
+                np.stack(self._rewards_list[i], axis=0, out=rewards[:length, i])
             self._rewards = torch.as_tensor(rewards, device=self.device)
+            del self._rewards_list
         return self._rewards
 
     @property
@@ -139,6 +144,9 @@ class BatchEpisodes(object):
         if normalize:
             self._advantages = weighted_normalize(self._advantages,
                                                   weights=self.mask)
+        # Once the advantages are computed, the returns are not necessary
+        # anymore (only to compute the parameters of the baseline)
+        del self._returns
 
         return self.advantages
 
