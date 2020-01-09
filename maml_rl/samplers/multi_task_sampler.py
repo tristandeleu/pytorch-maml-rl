@@ -218,7 +218,11 @@ class SamplerWorker(mp.Process):
                                           gae_lambda=gae_lambda,
                                           normalize=True)
         train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-        self.train_queue.put((index, train_episodes))
+        # QKFIX: Deep copy the episodes before sending them to their respective
+        # queues, to avoid a race condition. This issue would cause the policy
+        # pi = policy(observations) to be miscomputed for some timesteps, which
+        # in turns makes the loss explode.
+        self.train_queue.put((index, deepcopy(train_episodes)))
 
         # Adapt the policy to the task, based on the REINFORCE loss computed on
         # the training trajectories. The gradient update in the fast adaptation
@@ -246,11 +250,12 @@ class SamplerWorker(mp.Process):
             valid_episodes.append(*item)
         valid_episodes.log('duration', time.time() - valid_t0)
 
+        self.baseline.fit(valid_episodes)
         valid_episodes.compute_advantages(self.baseline,
                                           gae_lambda=gae_lambda,
                                           normalize=True)
         valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-        self.valid_queue.put((index, valid_episodes))
+        self.valid_queue.put((index, deepcopy(valid_episodes)))
 
     def sample_trajectories(self, params=None):
         observations = self.envs.reset()
