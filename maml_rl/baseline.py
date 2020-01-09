@@ -30,7 +30,7 @@ class LinearFeatureBaseline(nn.Module):
 
     def _feature(self, episodes):
         ones = episodes.mask.unsqueeze(2)
-        observations = episodes.observations * ones
+        observations = episodes.observations
         time_step = torch.arange(len(episodes)).view(-1, 1, 1) * ones / 100.0
 
         return torch.cat([
@@ -66,4 +66,5 @@ class LinearFeatureBaseline(nn.Module):
 
     def forward(self, episodes):
         features = self._feature(episodes)
-        return torch.mv(features, self.weight)
+        values = torch.mv(features.view(-1, self.feature_size), self.weight)
+        return values.view(features.shape[:2])
