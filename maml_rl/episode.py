@@ -140,10 +140,11 @@ class BatchEpisodes(object):
         # Normalize the advantages
         if normalize:
             self._advantages = weighted_normalize(self._advantages,
-                                                  weights=self.mask)
+                                                  lengths=self.lengths)
         # Once the advantages are computed, the returns are not necessary
         # anymore (only to compute the parameters of the baseline)
         del self._returns
+        del self._mask
 
         return self.advantages
 

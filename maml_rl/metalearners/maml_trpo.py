@@ -73,18 +73,12 @@ class MAMLTRPO(GradientBasedMetaLearner):
                 log_ratio = torch.sum(log_ratio, dim=2)
             ratio = torch.exp(log_ratio)
 
-            loss = -weighted_mean(ratio * valid_episodes.advantages,
-                                  dim=0,
-                                  weights=valid_episodes.mask)
+            losses = -weighted_mean(ratio * valid_episodes.advantages,
+                                    lengths=valid_episodes.lengths)
+            kls = weighted_mean(kl_divergence(pi, old_pi),
+                                lengths=valid_episodes.lengths)
 
-            mask = valid_episodes.mask
-            if valid_episodes.actions.dim() > 2:
-                mask = mask.unsqueeze(dim=2)
-            kl = weighted_mean(kl_divergence(pi, old_pi),
-                               dim=0,
-                               weights=mask)
-
-        return loss, kl, old_pi
+        return losses.mean(), kls.mean(), old_pi
 
     def step(self,
              train_episodes,

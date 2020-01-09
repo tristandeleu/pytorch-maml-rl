@@ -4,22 +4,28 @@ import numpy as np
 from torch.distributions import Categorical, Normal
 from torch.nn.utils.convert_parameters import _check_param_device
 
-def weighted_mean(tensor, dim=None, weights=None):
-    if weights is None:
-        out = torch.mean(tensor)
-    if dim is None:
-        out = torch.sum(tensor * weights)
-        out.div_(torch.sum(weights))
-    else:
-        mean_dim = torch.sum(tensor * weights, dim=dim)
-        mean_dim.div_(torch.sum(weights, dim=dim))
-        out = torch.mean(mean_dim)
+def weighted_mean(tensor, lengths=None):
+    if lengths is None:
+        return torch.mean(tensor)
+    if tensor.dim() < 2:
+        raise ValueError('Expected tensor with at least 2 dimensions '
+                         '(trajectory_length x batch_size), got {0}D '
+                         'tensor.'.format(tensor.dim()))
+    for i, length in enumerate(lengths):
+        tensor[length:, i].fill_(0.)
+
+    extra_dims = (1,) * (tensor.dim() - 2)
+    lengths = torch.as_tensor(lengths, dtype=torch.float32)
+
+    out = torch.sum(tensor, dim=0)
+    out.div_(lengths.view(-1, *extra_dims))
+
     return out
 
-def weighted_normalize(tensor, dim=None, weights=None, epsilon=1e-8):
-    mean = weighted_mean(tensor, dim=dim, weights=weights)
-    out = tensor * (1 if weights is None else weights) - mean
-    std = torch.sqrt(weighted_mean(out ** 2, dim=dim, weights=weights))
+def weighted_normalize(tensor, lengths=None, epsilon=1e-8):
+    mean = weighted_mean(tensor, lengths=lengths)
+    out = tensor - mean.mean()
+    std = torch.sqrt(weighted_mean(out ** 2, lengths=lengths))
     out.div_(std + epsilon)
     return out
 

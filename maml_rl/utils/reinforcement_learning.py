@@ -35,7 +35,7 @@ def reinforce_loss(policy, episodes, params=None):
     if log_probs.dim() > 2:
         log_probs = log_probs.sum(dim=2)
 
-    loss = -weighted_mean(log_probs * episodes.advantages,
-                          dim=0, weights=episodes.mask)
+    losses = -weighted_mean(log_probs * episodes.advantages,
+                            lengths=episodes.lengths)
 
-    return loss
+    return losses.mean()
