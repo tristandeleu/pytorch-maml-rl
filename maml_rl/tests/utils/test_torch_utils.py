@@ -70,6 +70,19 @@ def test_weighted_mean_side_effect():
         assert (inputs_np[length:, i] == 0.).all()
 
 
+def test_weighted_normalize():
+    lengths = [2, 3, 7, 5, 11]
+    # Inputs
+    inputs_np = np.random.rand(13, 5).astype(np.float32)
+
+    # Pytorch
+    inputs_th = torch.as_tensor(inputs_np)
+    normalized_th = weighted_normalize(inputs_th, lengths=lengths)
+
+    for i, length in enumerate(lengths):
+        assert (normalized_th[length:, i] == 0.).all()
+
+
 def test_vector_to_parameters_no_shared_memory():
     model = nn.Sequential(
         nn.Linear(2, 3, bias=True),

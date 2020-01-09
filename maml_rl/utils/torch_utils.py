@@ -25,8 +25,12 @@ def weighted_mean(tensor, lengths=None):
 def weighted_normalize(tensor, lengths=None, epsilon=1e-8):
     mean = weighted_mean(tensor, lengths=lengths)
     out = tensor - mean.mean()
-    std = torch.sqrt(weighted_mean(out ** 2, lengths=lengths))
+    for i, length in enumerate(lengths):
+        out[length:, i].fill_(0.)
+
+    std = torch.sqrt(weighted_mean(out ** 2, lengths=lengths).mean())
     out.div_(std + epsilon)
+
     return out
 
 def detach_distribution(pi):
