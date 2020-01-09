@@ -80,14 +80,11 @@ class BatchEpisodes(object):
     @property
     def returns(self):
         if self._returns is None:
-            return_ = np.zeros(self.batch_size, dtype=np.float32)
-            returns = np.zeros((len(self), self.batch_size), dtype=np.float32)
-            rewards = self.rewards.cpu().numpy()
-            mask = self.mask.cpu().numpy()
+            self._returns = torch.zeros_like(self.rewards)
+            return_ = torch.zeros((self.batch_size,), dtype=torch.float32)
             for i in range(len(self) - 1, -1, -1):
-                return_ = self.gamma * return_ + rewards[i] * mask[i]
-                returns[i] = return_
-            self._returns = torch.as_tensor(returns, device=self.device)
+                return_ = self.gamma * return_ + self.rewards[i] * self.mask[i]
+                self._returns[i] = return_
         return self._returns
 
     @property
@@ -127,15 +124,15 @@ class BatchEpisodes(object):
 
     def compute_advantages(self, baseline, gae_lambda=1.0, normalize=True):
         # Compute the values based on the baseline
-        values = baseline(self).squeeze(2).detach()
+        values = baseline(self).detach()
         # Add an additional 0 at the end of values for
         # the estimation at the end of the episode
         values = F.pad(values * self.mask, (0, 0, 0, 1))
 
         # Compute the advantages based on the values
         deltas = self.rewards + self.gamma * values[1:] - values[:-1]
-        self._advantages = torch.zeros_like(deltas, dtype=torch.float32)
-        gae = torch.zeros_like(deltas[0], dtype=torch.float32)
+        self._advantages = torch.zeros_like(self.rewards)
+        gae = torch.zeros((self.batch_size,), dtype=torch.float32)
         for i in range(len(self) - 1, -1, -1):
             gae = gae * self.gamma * gae_lambda + deltas[i]
             self._advantages[i] = gae
