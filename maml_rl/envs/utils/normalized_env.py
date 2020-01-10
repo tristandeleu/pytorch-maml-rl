@@ -13,25 +13,30 @@ class NormalizedActionWrapper(gym.ActionWrapper):
         "Benchmarking Deep Reinforcement Learning for Continuous Control", 2016 
         (https://arxiv.org/abs/1604.06778)
     """
-    def __init__(self, env):
+    def __init__(self, env, scale=1.0):
         super(NormalizedActionWrapper, self).__init__(env)
-        self.action_space = spaces.Box(low=-1.0, high=1.0,
+        self.scale = scale
+        self.action_space = spaces.Box(low=-scale, high=scale,
             shape=self.env.action_space.shape)
 
     def action(self, action):
-        # Clip the action in [-1, 1]
-        action = np.clip(action, -1.0, 1.0)
+        # Clip the action in [-scale, scale]
+        action = np.clip(action, -self.scale, self.scale)
         # Map the normalized action to original action space
         lb, ub = self.env.action_space.low, self.env.action_space.high
-        action = lb + 0.5 * (action + 1.0) * (ub - lb)
+        if np.all(np.isfinite(lb)) and np.all(np.isfinite(ub)):
+            action = lb + (action + self.scale) * (ub - lb) / (2 * self.scale)
+            action = np.clip(action, lb, ub)
         return action
 
     def reverse_action(self, action):
         # Map the original action to normalized action space
         lb, ub = self.env.action_space.low, self.env.action_space.high
-        action = 2.0 * (action - lb) / (ub - lb) - 1.0
-        # Clip the action in [-1, 1]
-        action = np.clip(action, -1.0, 1.0)
+        action = np.clip(action, lb, ub)
+        if np.all(np.isfinite(lb)) and np.all(np.isfinite(ub)):
+            action = 2 * self.scale * (action - lb) / (ub - lb) - self.scale
+        # Clip the action in [-scale, scale]
+        action = np.clip(action, -self.scale, self.scale)
         return action
 
 
