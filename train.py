@@ -58,6 +58,7 @@ def main(args):
                            first_order=config['first-order'],
                            device=args.device)
 
+    num_iterations = 0
     for batch in trange(config['num-batches']):
         tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size'])
         futures = sampler.sample_async(tasks,
@@ -74,7 +75,10 @@ def main(args):
                                 ls_backtrack_ratio=config['ls-backtrack-ratio'])
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
+        num_iterations += sum(sum(episode.lengths) for episode in train_episodes)
+        num_iterations += sum(sum(episode.lengths) for episode in valid_episodes)
         logs.update(tasks=tasks,
+                    num_iterations=num_iterations,
                     train_returns=get_returns(train_episodes),
                     valid_returns=get_returns(valid_episodes))
 
