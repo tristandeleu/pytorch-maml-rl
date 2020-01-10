@@ -1,5 +1,4 @@
 import torch
-import asyncio
 
 from torch.nn.utils.convert_parameters import parameters_to_vector
 from torch.distributions.kl import kl_divergence
@@ -52,10 +51,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
             return flat_grad2_kl + damping * vector
         return _product
 
-    async def surrogate_loss(self,
-                             train_futures,
-                             valid_futures,
-                             old_pi=None):
+    async def surrogate_loss(self, train_futures, valid_futures, old_pi=None):
         first_order = (old_pi is not None) or self.first_order
         params = self.adapt(await train_futures,
                             first_order=first_order)
@@ -92,12 +88,9 @@ class MAMLTRPO(GradientBasedMetaLearner):
         logs = {}
 
         # Compute the surrogate loss
-        coroutine = asyncio.gather(*[self.surrogate_loss(train,
-                                                         valid,
-                                                         old_pi=None)
+        old_losses, old_kls, old_pis = self._async_gather([
+            self.surrogate_loss(train, valid, old_pi=None)
             for (train, valid) in zip(train_futures, valid_futures)])
-        old_losses, old_kls, old_pis = zip(
-            *self._event_loop.run_until_complete(coroutine))
 
         logs['loss_before'] = to_numpy(old_losses)
         logs['kl_before'] = to_numpy(old_kls)
@@ -132,13 +125,11 @@ class MAMLTRPO(GradientBasedMetaLearner):
             vector_to_parameters(old_params - step_size * step,
                                  self.policy.parameters())
 
-            coroutine = asyncio.gather(*[self.surrogate_loss(train,
-                                                             valid,
-                                                             old_pi=old_pi)
+            losses, kls, _ = self._async_gather([
+                self.surrogate_loss(train, valid, old_pi=old_pi)
                 for (train, valid, old_pi)
                 in zip(train_futures, valid_futures, old_pis)])
 
-            losses, kls, _ = zip(*self._event_loop.run_until_complete(coroutine))
             improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks
             if (improve.item() < 0.0) and (kl.item() < max_kl):

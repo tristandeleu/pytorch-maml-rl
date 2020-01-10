@@ -16,3 +16,7 @@ class GradientBasedMetaLearner(object):
 
     def step(self, train_episodes, valid_episodes, *args, **kwargs):
         raise NotImplementedError()
+
+    def _async_gather(self, coroutines):
+        coroutine = asyncio.gather(*coroutines)
+        return zip(*self._event_loop.run_until_complete(coroutine))
