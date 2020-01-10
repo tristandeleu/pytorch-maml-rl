@@ -22,7 +22,6 @@ def _create_consumer(queue, futures, loop=None):
             break
         index, episodes = data
         if not futures[index].cancelled():
-            episodes.log('_dequeueAt', datetime.now(timezone.utc))
             loop.call_soon_threadsafe(futures[index].set_result, episodes)
 
 
@@ -232,6 +231,10 @@ class SamplerWorker(mp.Process):
         with self.policy_lock:
             params = None
             for _ in range(num_steps):
+                # TODO: In MAML with more than one inner update, new
+                # trajectories are sampled at every gradient step. Right now,
+                # only two sets of trajectories are sampled: training trajectories
+                # before adaptation, and validation after adaptation.
                 loss = reinforce_loss(self.policy, train_episodes, params=params)
                 params = self.policy.update_params(loss,
                                                    params=params,
