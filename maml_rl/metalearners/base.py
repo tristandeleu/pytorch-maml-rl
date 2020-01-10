@@ -16,11 +16,3 @@ class GradientBasedMetaLearner(object):
 
     def step(self, train_episodes, valid_episodes, *args, **kwargs):
         raise NotImplementedError()
-
-    def sample(self, tasks, **kwargs):
-        if 'device' not in kwargs:
-            kwargs['device'] = self.device.type
-        return self.sampler.sample(tasks, **kwargs)
-
-    def close(self):
-        pass

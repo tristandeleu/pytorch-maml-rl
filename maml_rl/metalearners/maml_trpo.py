@@ -81,21 +81,21 @@ class MAMLTRPO(GradientBasedMetaLearner):
         return losses.mean(), kls.mean(), old_pi
 
     def step(self,
-             train_episodes,
-             valid_episodes,
+             train_futures,
+             valid_futures,
              max_kl=1e-3,
              cg_iters=10,
              cg_damping=1e-2,
              ls_max_steps=10,
              ls_backtrack_ratio=0.5):
-        num_tasks = len(train_episodes)
+        num_tasks = len(train_futures)
         logs = {}
 
         # Compute the surrogate loss
         coroutine = asyncio.gather(*[self.surrogate_loss(train,
                                                          valid,
                                                          old_pi=None)
-            for (train, valid) in zip(train_episodes, valid_episodes)])
+            for (train, valid) in zip(train_futures, valid_futures)])
         old_losses, old_kls, old_pis = zip(
             *self._event_loop.run_until_complete(coroutine))
 
@@ -136,7 +136,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
                                                              valid,
                                                              old_pi=old_pi)
                 for (train, valid, old_pi)
-                in zip(train_episodes, valid_episodes, old_pis)])
+                in zip(train_futures, valid_futures, old_pis)])
 
             losses, kls, _ = zip(*self._event_loop.run_until_complete(coroutine))
             improve = (sum(losses) / num_tasks) - old_loss
