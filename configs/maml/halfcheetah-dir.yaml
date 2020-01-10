@@ -5,8 +5,8 @@ env-name: "HalfCheetahDir-v1"
 
 # Additional parameters for the environment (eg. bound for task sampling).
 env-kwargs:
-  - low: 0.0
-  - high: 2.0
+  low: 0.0
+  high: 2.0
 
 # Discount factor gamma.
 gamma: 0.99
