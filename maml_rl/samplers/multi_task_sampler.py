@@ -26,6 +26,36 @@ def _create_consumer(queue, futures, loop=None):
 
 
 class MultiTaskSampler(Sampler):
+    """Vectorized sampler to sample trajectories from multiple environements.
+
+    Parameters
+    ----------
+    env_name : str
+        Name of the environment. This environment should be an environment
+        registered through `gym`. See `maml.envs`.
+
+    batch_size : int
+        Number of trajectories to sample from each task (ie. `fast_batch_size`).
+
+    policy : `maml_rl.policies.Policy` instance
+        The policy network for sampling. Note that the policy network is an
+        instance of `torch.nn.Module` that takes observations as input and
+        returns a distribution (typically `Normal` or `Categorical`).
+
+    env : `gym.Env` instance (optional)
+        An instance of the environment given by `env_name`. This is used to
+        sample tasks from. If not provided, an instance is created from `env_name`.
+
+    seed : int (optional)
+        Random seed for the different environments. Note that each task and each
+        environement inside every process use different random seed derived from
+        this value if provided.
+
+    num_workers : int
+        Number of processes to launch. Note that the number of processes does
+        not have to be equal to the number of tasks in a batch (ie. `meta_batch_size`),
+        and can scale with the amount of CPUs available instead.
+    """
     def __init__(self,
                  env_name,
                  batch_size,
