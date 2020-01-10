@@ -15,16 +15,16 @@ def main(args):
     with open(args.config, 'r') as f:
         config = json.load(f)
 
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
-    env = gym.make(config['env_name'])
+    env = gym.make(config['env-name'])
     env.close()
 
     # Policy
-    hidden_sizes = (config['hidden_size'],) * config['num_layers']
     policy = get_policy_for_env(env,
-                                hidden_sizes=hidden_sizes,
+                                hidden_sizes=config['hidden-sizes'],
                                 nonlinearity=config['nonlinearity'])
     with open(args.policy, 'rb') as f:
         state_dict = torch.load(f, map_location=torch.device(args.device))
@@ -35,8 +35,8 @@ def main(args):
     baseline = LinearFeatureBaseline(get_input_size(env))
 
     # Sampler
-    sampler = MultiTaskSampler(config['env_name'],
-                               batch_size=config['fast_batch_size'],
+    sampler = MultiTaskSampler(config['env-name'],
+                               batch_size=config['fast-batch-size'],
                                policy=policy,
                                baseline=baseline,
                                env=env,
@@ -48,10 +48,10 @@ def main(args):
     for batch in trange(args.num_batches):
         tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
         train_episodes, valid_episodes = sampler.sample(tasks,
-                                                        num_steps=config['num_steps'],
-                                                        fast_lr=config['fast_lr'],
+                                                        num_steps=config['num-steps'],
+                                                        fast_lr=config['fast-lr'],
                                                         gamma=config['gamma'],
-                                                        gae_lambda=config['gae_lambda'],
+                                                        gae_lambda=config['gae-lambda'],
                                                         device=args.device)
 
         logs['tasks'].extend(tasks)
@@ -95,9 +95,11 @@ if __name__ == '__main__':
         help='number of workers for trajectories sampling (default: '
              '{0})'.format(mp.cpu_count() - 1))
     misc.add_argument('--use-cuda', action='store_true',
-        help='use cuda (default: false, use cpu)')
+        help='use cuda (default: false, use cpu). WARNING: Full upport for cuda '
+        'is not guaranteed. Using CPU is encouraged.')
 
     args = parser.parse_args()
-    args.device = 'cuda' if args.use_cuda else 'cpu'
+    args.device = ('cuda' if (torch.cuda.is_available()
+                   and args.use_cuda) else 'cpu')
 
     main(args)

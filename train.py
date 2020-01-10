@@ -1,9 +1,11 @@
-import maml_rl.envs
 import gym
 import torch
 import json
+import os
+import yaml
 from tqdm import trange
 
+import maml_rl.envs
 from maml_rl.metalearners import MAMLTRPO
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
@@ -12,33 +14,38 @@ from maml_rl.utils.reinforcement_learning import get_returns
 
 
 def main(args):
-    if not os.path.exists(args.output_folder):
-        os.makedirs(args.output_folder)
-    policy_filename = os.path.join(args.output_folder, 'policy.th')
-    config_filename = os.path.join(args.output_folder, 'config.json')
+    with open(args.config, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
-    with open(config_filename, 'w') as f:
-        json.dump(vars(args), f, indent=2)
+    if args.output_folder is not None:
+        if not os.path.exists(args.output_folder):
+            os.makedirs(args.output_folder)
+        policy_filename = os.path.join(args.output_folder, 'policy.th')
+        config_filename = os.path.join(args.output_folder, 'config.json')
 
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+        with open(config_filename, 'w') as f:
+            config.update(vars(args))
+            json.dump(config, f, indent=2)
 
-    env = gym.make(args.env_name)
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+
+    env = gym.make(config['env-name'])
     env.close()
 
     # Policy
-    hidden_sizes = (args.hidden_size,) * args.num_layers
     policy = get_policy_for_env(env,
-                                hidden_sizes=hidden_sizes,
-                                nonlinearity=args.nonlinearity)
+                                hidden_sizes=config['hidden-sizes'],
+                                nonlinearity=config['nonlinearity'])
     policy.share_memory()
 
     # Baseline
     baseline = LinearFeatureBaseline(get_input_size(env))
 
     # Sampler
-    sampler = MultiTaskSampler(args.env_name,
-                               batch_size=args.fast_batch_size,
+    sampler = MultiTaskSampler(config['env-name'],
+                               batch_size=config['fast-batch-size'],
                                policy=policy,
                                baseline=baseline,
                                env=env,
@@ -46,25 +53,25 @@ def main(args):
                                num_workers=args.num_workers)
 
     metalearner = MAMLTRPO(policy,
-                           fast_lr=args.fast_lr,
-                           num_steps=args.num_steps,
-                           first_order=args.first_order,
+                           fast_lr=config['fast-lr'],
+                           num_steps=config['num-steps'],
+                           first_order=config['first-order'],
                            device=args.device)
 
-    for batch in trange(args.num_batches):
-        tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
+    for batch in trange(config['num-batches']):
+        tasks = sampler.sample_tasks(num_tasks=config['meta-batch-size'])
         futures = sampler.sample_async(tasks,
-                                       num_steps=args.num_steps,
-                                       fast_lr=args.fast_lr,
-                                       gamma=args.gamma,
-                                       gae_lambda=args.gae_lambda,
+                                       num_steps=config['num-steps'],
+                                       fast_lr=config['fast-lr'],
+                                       gamma=config['gamma'],
+                                       gae_lambda=config['gae-lambda'],
                                        device=args.device)
         logs = metalearner.step(*futures,
-                                max_kl=args.max_kl,
-                                cg_iters=args.cg_iters,
-                                cg_damping=args.cg_damping,
-                                ls_max_steps=args.ls_max_steps,
-                                ls_backtrack_ratio=args.ls_backtrack_ratio)
+                                max_kl=config['max-kl'],
+                                cg_iters=config['cg-iters'],
+                                cg_damping=config['cg-damping'],
+                                ls_max_steps=config['ls-max-steps'],
+                                ls_backtrack_ratio=config['ls-backtrack-ratio'])
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
         logs.update(tasks=tasks,
@@ -72,81 +79,36 @@ def main(args):
                     valid_returns=get_returns(valid_episodes))
 
         # Save policy
-        with open(policy_filename, 'wb') as f:
-            torch.save(policy.state_dict(), f)
+        if args.output_folder is not None:
+            with open(policy_filename, 'wb') as f:
+                torch.save(policy.state_dict(), f)
 
 
 if __name__ == '__main__':
     import argparse
-    import os
     import multiprocessing as mp
 
     parser = argparse.ArgumentParser(description='Reinforcement learning with '
         'Model-Agnostic Meta-Learning (MAML) - Train')
 
-    parser.add_argument('--config', type=str, required=False, default=None,
-        help='path to the configuration file (optional)')
-
-    # General
-    general = parser.add_argument_group('General')
-    general.add_argument('--env-name', type=str, required=True,
-        help='name of the environment')
-    general.add_argument('--gamma', type=float, default=0.95,
-        help='value of the discount factor gamma (default: 0.95)')
-    general.add_argument('--gae-lambda', type=float, default=1.0,
-        help='value of the discount factor for GAE (default: 1.0)')
-    general.add_argument('--first-order', action='store_true',
-        help='use the first-order approximation of MAML')
-
-    # Policy network
-    policy = parser.add_argument_group('Policy network')
-    policy.add_argument('--hidden-size', type=int, default=100,
-        help='number of hidden units per layer (default: 100)')
-    policy.add_argument('--nonlinearity', type=str,
-        choices=['relu', 'tanh'], default='relu',
-        help='nonlinearity function (default: relu)')
-    policy.add_argument('--num-layers', type=int, default=2,
-        help='number of hidden layers (default: 2)')
-
-    # Task-specific
-    task_specific = parser.add_argument_group('Task-specific')
-    task_specific.add_argument('--fast-batch-size', type=int, default=20,
-        help='batch size for each individual task (default: 20)')
-    task_specific.add_argument('--num-steps', type=int, default=1,
-        help='number of gradient steps for adaptation (default: 1)')
-    task_specific.add_argument('--fast-lr', type=float, default=0.5,
-        help='learning rate for the gradient update of MAML (default: 0.5)')
-
-    # Optimization
-    optimization = parser.add_argument_group('Optimization')
-    optimization.add_argument('--num-batches', type=int, default=200,
-        help='number of batches (default: 200)')
-    optimization.add_argument('--meta-batch-size', type=int, default=40,
-        help='number of tasks per batch (default: 40)')
-    optimization.add_argument('--max-kl', type=float, default=1e-2,
-        help='maximum value for the KL constraint in TRPO (default: 1e-2)')
-    optimization.add_argument('--cg-iters', type=int, default=10,
-        help='number of iterations of conjugate gradient (default: 10)')
-    optimization.add_argument('--cg-damping', type=float, default=1e-5,
-        help='damping in conjugate gradient (default: 1e-5)')
-    optimization.add_argument('--ls-max-steps', type=int, default=15,
-        help='maximum number of iterations for line search (default: 15)')
-    optimization.add_argument('--ls-backtrack-ratio', type=float, default=0.8,
-        help='annealing ratio of the step size for line search (default: 0.8)')
+    parser.add_argument('--config', type=str, required=True,
+        help='path to the configuration file.')
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
-    misc.add_argument('--output-folder', type=str, required=True,
-        help='name of the output folder (default: maml)')
-    misc.add_argument('--seed', type=int, default=1,
-        help='random seed (default: 1)')
+    misc.add_argument('--output-folder', type=str,
+        help='name of the output folder')
+    misc.add_argument('--seed', type=int, default=None,
+        help='random seed')
     misc.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
         help='number of workers for trajectories sampling (default: '
              '{0})'.format(mp.cpu_count() - 1))
     misc.add_argument('--use-cuda', action='store_true',
-        help='use cuda (default: false, use cpu)')
+        help='use cuda (default: false, use cpu). WARNING: Full upport for cuda '
+        'is not guaranteed. Using CPU is encouraged.')
 
     args = parser.parse_args()
-    args.device = 'cuda' if args.use_cuda else 'cpu'
+    args.device = ('cuda' if (torch.cuda.is_available()
+                   and args.use_cuda) else 'cpu')
 
     main(args)
