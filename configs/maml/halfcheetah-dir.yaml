@@ -1,10 +1,12 @@
 # General
 # -------
 # Name of the environment.
-env-name: "HalfCheetahDir-v1"
+env-name: "HalfCheetahDir-v2"
 
 # Additional parameters for the environment (eg. bound for task sampling).
-env-kwargs: {}
+env-kwargs:
+  normalization_scale: 10.0
+  max_episode_steps: 100
 
 # Discount factor gamma.
 gamma: 0.99
