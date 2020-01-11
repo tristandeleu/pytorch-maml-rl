@@ -20,9 +20,10 @@ def _create_consumer(queue, futures, loop=None):
         data = queue.get()
         if data is None:
             break
-        index, episodes = data
-        if not futures[index].cancelled():
-            loop.call_soon_threadsafe(futures[index].set_result, episodes)
+        index, step, episodes = data
+        future = futures if (step is None) else futures[step]
+        if not future[index].cancelled():
+            loop.call_soon_threadsafe(future[index].set_result, episodes)
 
 
 class MultiTaskSampler(Sampler):
@@ -116,7 +117,9 @@ class MultiTaskSampler(Sampler):
         for index, task in enumerate(tasks):
             self.task_queue.put((index, task, kwargs))
 
-        futures = self._start_consumer_threads(tasks)
+        num_steps = kwargs.get('num_steps', 1)
+        futures = self._start_consumer_threads(tasks,
+                                               num_steps=num_steps)
         self._waiting_sample = True
         return futures
 
@@ -127,7 +130,8 @@ class MultiTaskSampler(Sampler):
 
         async def _wait(train_futures, valid_futures):
             # Gather the train and valid episodes
-            train_episodes = await asyncio.gather(*train_futures)
+            train_episodes = await asyncio.gather(*[asyncio.gather(*futures)
+                                                  for futures in train_futures])
             valid_episodes = await asyncio.gather(*valid_futures)
             return (train_episodes, valid_episodes)
 
@@ -152,9 +156,10 @@ class MultiTaskSampler(Sampler):
             raise ValueError()
         return self._valid_consumer_thread
 
-    def _start_consumer_threads(self, tasks):
+    def _start_consumer_threads(self, tasks, num_steps=1):
         # Start train episodes consumer thread
-        train_episodes_futures = [self._event_loop.create_future() for _ in tasks]
+        train_episodes_futures = [[self._event_loop.create_future() for _ in tasks]
+                                  for _ in range(num_steps)]
         self._train_consumer_thread = threading.Thread(target=_create_consumer,
             args=(self.train_episodes_queue, train_episodes_futures),
             kwargs={'loop': self._event_loop},
@@ -236,41 +241,26 @@ class SamplerWorker(mp.Process):
                gamma=0.95,
                gae_lambda=1.0,
                device='cpu'):
-        # Sample the training trajectories with the initial policy
-        train_episodes = BatchEpisodes(batch_size=self.batch_size,
-                                       gamma=gamma,
-                                       device=device)
-        train_episodes.log('_createdAt', datetime.now(timezone.utc))
-        train_episodes.log('process_name', self.name)
-
-        train_t0 = time.time()
-        for item in self.sample_trajectories():
-            train_episodes.append(*item)
-        train_episodes.log('duration', time.time() - train_t0)
-
-        self.baseline.fit(train_episodes)
-        train_episodes.compute_advantages(self.baseline,
-                                          gae_lambda=gae_lambda,
-                                          normalize=True)
-        train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-        # QKFIX: Deep copy the episodes before sending them to their respective
-        # queues, to avoid a race condition. This issue would cause the policy
-        # pi = policy(observations) to be miscomputed for some timesteps, which
-        # in turns makes the loss explode.
-        self.train_queue.put((index, deepcopy(train_episodes)))
-
-        # Adapt the policy to the task, based on the REINFORCE loss computed on
-        # the training trajectories. The gradient update in the fast adaptation
-        # uses `first_order=True` no matter if the second order version of MAML
-        # is used since this is only used for sampling trajectories, and not
+        # Sample the training trajectories with the initial policy and adapt the
+        # policy to the task, based on the REINFORCE loss computed on the
+        # training trajectories. The gradient update in the fast adaptation uses
+        # `first_order=True` no matter if the second order version of MAML is
+        # applied since this is only used for sampling trajectories, and not
         # for optimization.
-        with self.policy_lock:
-            params = None
-            for _ in range(num_steps):
-                # TODO: In MAML with more than one inner update, new
-                # trajectories are sampled at every gradient step. Right now,
-                # only two sets of trajectories are sampled: training trajectories
-                # before adaptation, and validation after adaptation.
+        params = None
+        for step in range(num_steps):
+            train_episodes = self.create_episodes(params=params,
+                                                  gamma=gamma,
+                                                  gae_lambda=gae_lambda,
+                                                  device=device)
+            train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
+            # QKFIX: Deep copy the episodes before sending them to their
+            # respective queues, to avoid a race condition. This issue would 
+            # cause the policy pi = policy(observations) to be miscomputed for
+            # some timesteps, which in turns makes the loss explode.
+            self.train_queue.put((index, step, deepcopy(train_episodes)))
+
+            with self.policy_lock:
                 loss = reinforce_loss(self.policy, train_episodes, params=params)
                 params = self.policy.update_params(loss,
                                                    params=params,
@@ -278,23 +268,34 @@ class SamplerWorker(mp.Process):
                                                    first_order=True)
 
         # Sample the validation trajectories with the adapted policy
-        valid_episodes = BatchEpisodes(batch_size=self.batch_size,
-                                       gamma=gamma,
-                                       device=device)
-        valid_episodes.log('_createdAt', datetime.now(timezone.utc))
-        valid_episodes.log('process_name', self.name)
-
-        valid_t0 = time.time()
-        for item in self.sample_trajectories(params=params):
-            valid_episodes.append(*item)
-        valid_episodes.log('duration', time.time() - valid_t0)
-
-        self.baseline.fit(valid_episodes)
-        valid_episodes.compute_advantages(self.baseline,
-                                          gae_lambda=gae_lambda,
-                                          normalize=True)
+        valid_episodes = self.create_episodes(params=params,
+                                              gamma=gamma,
+                                              gae_lambda=gae_lambda,
+                                              device=device)
         valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-        self.valid_queue.put((index, deepcopy(valid_episodes)))
+        self.valid_queue.put((index, None, deepcopy(valid_episodes)))
+
+    def create_episodes(self,
+                        params=None,
+                        gamma=0.95,
+                        gae_lambda=1.0,
+                        device='cpu'):
+        episodes = BatchEpisodes(batch_size=self.batch_size,
+                                 gamma=gamma,
+                                 device=device)
+        episodes.log('_createdAt', datetime.now(timezone.utc))
+        episodes.log('process_name', self.name)
+
+        t0 = time.time()
+        for item in self.sample_trajectories(params=params):
+            episodes.append(*item)
+        episodes.log('duration', time.time() - t0)
+
+        self.baseline.fit(episodes)
+        episodes.compute_advantages(self.baseline,
+                                    gae_lambda=gae_lambda,
+                                    normalize=True)
+        return episodes
 
     def sample_trajectories(self, params=None):
         observations = self.envs.reset()

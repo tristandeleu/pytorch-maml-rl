@@ -50,20 +50,21 @@ class MAMLTRPO(GradientBasedMetaLearner):
     def __init__(self,
                  policy,
                  fast_lr=0.5,
-                 num_steps=1,
                  first_order=False,
                  device='cpu'):
         super(MAMLTRPO, self).__init__(policy, device=device)
         self.fast_lr = fast_lr
-        self.num_steps = num_steps
         self.first_order = first_order
 
-    def adapt(self, episodes, first_order=None):
+    async def adapt(self, train_futures, first_order=None):
         if first_order is None:
             first_order = self.first_order
+        # Loop over the number of steps of adaptation
         params = None
-        for _ in range(self.num_steps):
-            inner_loss = reinforce_loss(self.policy, episodes, params=params)
+        for futures in train_futures:
+            inner_loss = reinforce_loss(self.policy,
+                                        await futures,
+                                        params=params)
             params = self.policy.update_params(inner_loss,
                                                params=params,
                                                step_size=self.fast_lr,
@@ -88,8 +89,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
     async def surrogate_loss(self, train_futures, valid_futures, old_pi=None):
         first_order = (old_pi is not None) or self.first_order
-        params = self.adapt(await train_futures,
-                            first_order=first_order)
+        params = await self.adapt(train_futures,
+                                  first_order=first_order)
 
         with torch.set_grad_enabled(old_pi is None):
             valid_episodes = await valid_futures

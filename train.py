@@ -55,7 +55,6 @@ def main(args):
 
     metalearner = MAMLTRPO(policy,
                            fast_lr=config['fast-lr'],
-                           num_steps=config['num-steps'],
                            first_order=config['first-order'],
                            device=args.device)
 
@@ -76,11 +75,11 @@ def main(args):
                                 ls_backtrack_ratio=config['ls-backtrack-ratio'])
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
-        num_iterations += sum(sum(episode.lengths) for episode in train_episodes)
+        num_iterations += sum(sum(episode.lengths) for episode in train_episodes[0])
         num_iterations += sum(sum(episode.lengths) for episode in valid_episodes)
         logs.update(tasks=tasks,
                     num_iterations=num_iterations,
-                    train_returns=get_returns(train_episodes),
+                    train_returns=get_returns(train_episodes[0]),
                     valid_returns=get_returns(valid_episodes))
 
         # Save policy

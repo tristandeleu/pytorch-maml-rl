@@ -56,7 +56,7 @@ def main(args):
                                                         device=args.device)
 
         logs['tasks'].extend(tasks)
-        train_returns.append(get_returns(train_episodes))
+        train_returns.append(get_returns(train_episodes[0]))
         valid_returns.append(get_returns(valid_episodes))
 
     logs['train_returns'] = np.concatenate(train_returns, axis=0)
