@@ -36,6 +36,7 @@ def main(args):
 
     # Sampler
     sampler = MultiTaskSampler(config['env-name'],
+                               env_kwargs=config['env-kwargs'],
                                batch_size=config['fast-batch-size'],
                                policy=policy,
                                baseline=baseline,

@@ -58,6 +58,7 @@ class MultiTaskSampler(Sampler):
     """
     def __init__(self,
                  env_name,
+                 env_kwargs,
                  batch_size,
                  policy,
                  baseline,
@@ -65,6 +66,7 @@ class MultiTaskSampler(Sampler):
                  seed=None,
                  num_workers=1):
         super(MultiTaskSampler, self).__init__(env_name,
+                                               env_kwargs,
                                                batch_size,
                                                policy,
                                                seed=seed,
@@ -79,6 +81,7 @@ class MultiTaskSampler(Sampler):
 
         self.workers = [SamplerWorker(index,
                                       env_name,
+                                      env_kwargs,
                                       batch_size,
                                       self.env.observation_space,
                                       self.env.action_space,
@@ -197,6 +200,7 @@ class SamplerWorker(mp.Process):
     def __init__(self,
                  index,
                  env_name,
+                 env_kwargs,
                  batch_size,
                  observation_space,
                  action_space,
@@ -209,7 +213,8 @@ class SamplerWorker(mp.Process):
                  policy_lock):
         super(SamplerWorker, self).__init__()
 
-        env_fns = [make_env(env_name) for _ in range(batch_size)]
+        env_fns = [make_env(env_name, env_kwargs=env_kwargs)
+                   for _ in range(batch_size)]
         self.envs = SyncVectorEnv(env_fns,
                                   observation_space=observation_space,
                                   action_space=action_space)
