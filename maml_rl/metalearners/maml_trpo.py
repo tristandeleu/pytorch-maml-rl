@@ -101,8 +101,6 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
             log_ratio = (pi.log_prob(valid_episodes.actions)
                          - old_pi.log_prob(valid_episodes.actions))
-            if log_ratio.dim() > 2:
-                log_ratio = torch.sum(log_ratio, dim=2)
             ratio = torch.exp(log_ratio)
 
             losses = -weighted_mean(ratio * valid_episodes.advantages,

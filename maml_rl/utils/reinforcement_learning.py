@@ -31,9 +31,7 @@ def reinforce_loss(policy, episodes, params=None):
                 params=params)
 
     log_probs = pi.log_prob(episodes.actions.view((-1, *episodes.action_shape)))
-    log_probs = log_probs.view_as(episodes.actions)
-    if log_probs.dim() > 2:
-        log_probs = log_probs.sum(dim=2)
+    log_probs = log_probs.view(len(episodes), episodes.batch_size)
 
     losses = -weighted_mean(log_probs * episodes.advantages,
                             lengths=episodes.lengths)

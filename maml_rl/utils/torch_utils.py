@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from torch.distributions import Categorical, Normal
+from torch.distributions import Categorical, Independent, Normal
 from torch.nn.utils.convert_parameters import _check_param_device
 
 def weighted_mean(tensor, lengths=None):
@@ -34,13 +34,17 @@ def weighted_normalize(tensor, lengths=None, epsilon=1e-8):
     return out
 
 def detach_distribution(pi):
-    if isinstance(pi, Categorical):
+    if isinstance(pi, Independent):
+        distribution = Independent(detach_distribution(pi.base_dist),
+                                   pi.reinterpreted_batch_ndims)
+    elif isinstance(pi, Categorical):
         distribution = Categorical(logits=pi.logits.detach())
     elif isinstance(pi, Normal):
         distribution = Normal(loc=pi.loc.detach(), scale=pi.scale.detach())
     else:
-        raise NotImplementedError('Only `Categorical` and `Normal` '
-                                  'policies are valid policies.')
+        raise NotImplementedError('Only `Categorical`, `Independent` and '
+                                  '`Normal` policies are valid policies. Got '
+                                  '`{0}`.'.format(type(pi)))
     return distribution
 
 def to_numpy(tensor):

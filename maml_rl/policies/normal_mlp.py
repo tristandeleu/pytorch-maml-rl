@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions import Independent, Normal
 
 from collections import OrderedDict
 from maml_rl.policies.policy import Policy, weight_init
@@ -55,4 +55,4 @@ class NormalMLPPolicy(Policy):
                       bias=params['mu.bias'])
         scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))
 
-        return Normal(loc=mu, scale=scale)
+        return Independent(Normal(loc=mu, scale=scale), 1)
