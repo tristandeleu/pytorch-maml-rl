@@ -129,9 +129,10 @@ class MultiTaskSampler(Sampler):
             # Gather the train and valid episodes
             train_episodes = await asyncio.gather(*train_futures)
             valid_episodes = await asyncio.gather(*valid_futures)
-            self._join_consumer_threads()
             return (train_episodes, valid_episodes)
+
         samples = self._event_loop.run_until_complete(_wait(*episodes_futures))
+        self._join_consumer_threads()
         self._waiting_sample = False
         return samples
 
