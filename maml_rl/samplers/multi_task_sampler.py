@@ -35,6 +35,9 @@ class MultiTaskSampler(Sampler):
         Name of the environment. This environment should be an environment
         registered through `gym`. See `maml.envs`.
 
+    env_kwargs : dict
+        Additional keywork arguments to be added when creating the environment.
+
     batch_size : int
         Number of trajectories to sample from each task (ie. `fast_batch_size`).
 
@@ -42,6 +45,10 @@ class MultiTaskSampler(Sampler):
         The policy network for sampling. Note that the policy network is an
         instance of `torch.nn.Module` that takes observations as input and
         returns a distribution (typically `Normal` or `Categorical`).
+
+    baseline : `maml_rl.baseline.LinearFeatureBaseline` instance
+        The baseline. This baseline is an instance of `nn.Module`, with an
+        additional `fit` method to fit the parameters of the model.
 
     env : `gym.Env` instance (optional)
         An instance of the environment given by `env_name`. This is used to
