@@ -118,13 +118,13 @@ class MAMLTRPO(GradientBasedMetaLearner):
              cg_damping=1e-2,
              ls_max_steps=10,
              ls_backtrack_ratio=0.5):
-        num_tasks = len(train_futures)
+        num_tasks = len(train_futures[0])
         logs = {}
 
         # Compute the surrogate loss
         old_losses, old_kls, old_pis = self._async_gather([
             self.surrogate_loss(train, valid, old_pi=None)
-            for (train, valid) in zip(train_futures, valid_futures)])
+            for (train, valid) in zip(zip(*train_futures), valid_futures)])
 
         logs['loss_before'] = to_numpy(old_losses)
         logs['kl_before'] = to_numpy(old_kls)
@@ -162,7 +162,7 @@ class MAMLTRPO(GradientBasedMetaLearner):
             losses, kls, _ = self._async_gather([
                 self.surrogate_loss(train, valid, old_pi=old_pi)
                 for (train, valid, old_pi)
-                in zip(train_futures, valid_futures, old_pis)])
+                in zip(zip(*train_futures), valid_futures, old_pis)])
 
             improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks
