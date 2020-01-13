@@ -16,24 +16,47 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+#### Requirements
+ - Python 3.5 or above
+ - PyTorch 1.3
+ - Gym 0.15
+
 ## Usage
-You can use the [`main.py`](main.py) script in order to run reinforcement learning experiments with MAML. This script was tested with Python 3.5. Note that some environments may also work with Python 2.7 (all experiments besides MuJoCo-based environments).
+
+#### Training
+You can use the [`train.py`](train.py) script in order to run reinforcement learning experiments with MAML. Note that by default, logs are available in [`train.py`](train.py) but **are not** saved (eg. the returns during meta-training). For example, to run the script on HalfCheetah-Vel:
 ```
-python main.py --env-name HalfCheetahDir-v1 --num-workers 8 --fast-lr 0.1 --max-kl 0.01 --fast-batch-size 20 --meta-batch-size 40 --num-layers 2 --hidden-size 100 --num-batches 1000 --gamma 0.99 --tau 1.0 --cg-damping 1e-5 --ls-max-steps 15 --output-folder maml-halfcheetah-dir --device cuda
+python train.py --config configs/maml/halfcheetah-vel.yaml --output-folder maml-halfcheetah-vel --seed 1 --num-workers 8
+```
+
+#### Testing
+Once you have meta-trained the policy, you can test it on the same environment using [`test.py`](test.py):
+```
+python test.py --config maml-halfcheetah-vel/config.json --policy maml-halfcheetah-vel/policy.th --output maml-halfcheetah-vel/results.npz --meta-batch-size 20 --num-batches 10  --num-workers 8
 ```
 
 ## References
 This project is, for the most part, a reproduction of the original implementation [cbfinn/maml_rl](https://github.com/cbfinn/maml_rl/) in Pytorch. These experiments are based on the paper
-> Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-agnostic meta-learning for fast adaptation of deep
-networks. _International Conference on Machine Learning (ICML)_, 2017 [[ArXiv](https://arxiv.org/abs/1703.03400)]
+> Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-Agnostic Meta-Learning for Fast Adaptation of Deep
+Networks. _International Conference on Machine Learning (ICML)_, 2017 [[ArXiv](https://arxiv.org/abs/1703.03400)]
 
 If you want to cite this paper
 ```
-@article{DBLP:journals/corr/FinnAL17,
+@article{finn17maml,
   author    = {Chelsea Finn and Pieter Abbeel and Sergey Levine},
-  title     = {Model-{A}gnostic {M}eta-{L}earning for {F}ast {A}daptation of {D}eep {N}etworks},
+  title     = {{Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks}},
   journal   = {International Conference on Machine Learning (ICML)},
   year      = {2017},
   url       = {http://arxiv.org/abs/1703.03400}
+}
+```
+
+If you want to cite this implementation:
+```
+@misc{deleu2018mamlrl,
+  author = {Tristan Deleu},
+  title  = {{Model-Agnostic Meta-Learning for Reinforcement Learning in PyTorch}},
+  note   = {Available at: https://github.com/tristandeleu/pytorch-maml-rl},
+  year   = {2018}
 }
 ```
