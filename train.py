@@ -31,7 +31,7 @@ def main(args):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
 
-    env = gym.make(config['env-name'], **config['env-kwargs'])
+    env = gym.make(config['env-name'], **config.get('env-kwargs', {}))
     env.close()
 
     # Policy
@@ -45,7 +45,7 @@ def main(args):
 
     # Sampler
     sampler = MultiTaskSampler(config['env-name'],
-                               env_kwargs=config['env-kwargs'],
+                               env_kwargs=config.get('env-kwargs', {}),
                                batch_size=config['fast-batch-size'],
                                policy=policy,
                                baseline=baseline,
