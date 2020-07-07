@@ -25,7 +25,7 @@ first-order: false
 hidden-sizes: [64, 64]
 
 # Non-linear activation function to apply after each hidden layer.
-nonlinearity: "tanh"
+nonlinearity: "Tanh"
 
 # Task-specific
 # -------------
