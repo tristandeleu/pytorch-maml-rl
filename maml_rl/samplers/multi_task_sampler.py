@@ -3,6 +3,7 @@ import torch.multiprocessing as mp
 import asyncio
 import threading
 import time
+import higher
 
 from datetime import datetime, timezone
 from copy import deepcopy
@@ -85,7 +86,6 @@ class MultiTaskSampler(Sampler):
         self.task_queue = mp.JoinableQueue()
         self.train_episodes_queue = mp.Queue()
         self.valid_episodes_queue = mp.Queue()
-        policy_lock = mp.Lock()
 
         self.workers = [SamplerWorker(index,
                                       env_name,
@@ -98,8 +98,7 @@ class MultiTaskSampler(Sampler):
                                       self.seed,
                                       self.task_queue,
                                       self.train_episodes_queue,
-                                      self.valid_episodes_queue,
-                                      policy_lock)
+                                      self.valid_episodes_queue)
             for index in range(num_workers)]
 
         for worker in self.workers:
@@ -222,8 +221,7 @@ class SamplerWorker(mp.Process):
                  seed,
                  task_queue,
                  train_queue,
-                 valid_queue,
-                 policy_lock):
+                 valid_queue):
         super(SamplerWorker, self).__init__()
 
         env_fns = [make_env(env_name, env_kwargs=env_kwargs)
@@ -239,7 +237,6 @@ class SamplerWorker(mp.Process):
         self.task_queue = task_queue
         self.train_queue = train_queue
         self.valid_queue = valid_queue
-        self.policy_lock = policy_lock
 
     def sample(self,
                index,
@@ -248,42 +245,43 @@ class SamplerWorker(mp.Process):
                gamma=0.95,
                gae_lambda=1.0,
                device='cpu'):
+        # Define the inner optimizer (SGD)
+        inner_optimizer = torch.optim.SGD(self.policy.parameters(), lr=fast_lr)
+
         # Sample the training trajectories with the initial policy and adapt the
         # policy to the task, based on the REINFORCE loss computed on the
         # training trajectories. The gradient update in the fast adaptation uses
-        # `first_order=True` no matter if the second order version of MAML is
-        # applied since this is only used for sampling trajectories, and not
+        # `track_higher_grads=True` no matter if the second order version of MAML
+        # is applied since this is only used for sampling trajectories, and not
         # for optimization.
-        params = None
-        for step in range(num_steps):
-            train_episodes = self.create_episodes(params=params,
+        with higher.innerloop_ctx(self.policy, inner_optimizer,
+                copy_initial_weights=False, track_higher_grads=False) as (fpolicy, diffopt):
+            for step in range(num_steps):
+                train_episodes = self.create_episodes(fpolicy,
+                                                      gamma=gamma,
+                                                      gae_lambda=gae_lambda,
+                                                      device=device)
+                train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
+                # QKFIX: Deep copy the episodes before sending them to their
+                # respective queues, to avoid a race condition. This issue would 
+                # cause the policy pi = policy(observations) to be miscomputed for
+                # some timesteps, which in turns makes the loss explode.
+                self.train_queue.put((index, step, deepcopy(train_episodes)))
+
+                # Update the parameters with SGD
+                inner_loss = reinforce_loss(fpolicy, train_episodes)
+                diffopt.step(inner_loss)
+
+            # Sample the validation trajectories with the adapted policy
+            valid_episodes = self.create_episodes(fpolicy,
                                                   gamma=gamma,
                                                   gae_lambda=gae_lambda,
                                                   device=device)
-            train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-            # QKFIX: Deep copy the episodes before sending them to their
-            # respective queues, to avoid a race condition. This issue would 
-            # cause the policy pi = policy(observations) to be miscomputed for
-            # some timesteps, which in turns makes the loss explode.
-            self.train_queue.put((index, step, deepcopy(train_episodes)))
-
-            with self.policy_lock:
-                loss = reinforce_loss(self.policy, train_episodes, params=params)
-                params = self.policy.update_params(loss,
-                                                   params=params,
-                                                   step_size=fast_lr,
-                                                   first_order=True)
-
-        # Sample the validation trajectories with the adapted policy
-        valid_episodes = self.create_episodes(params=params,
-                                              gamma=gamma,
-                                              gae_lambda=gae_lambda,
-                                              device=device)
-        valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-        self.valid_queue.put((index, None, deepcopy(valid_episodes)))
+            valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
+            self.valid_queue.put((index, None, deepcopy(valid_episodes)))
 
     def create_episodes(self,
-                        params=None,
+                        policy,
                         gamma=0.95,
                         gae_lambda=1.0,
                         device='cpu'):
@@ -294,7 +292,7 @@ class SamplerWorker(mp.Process):
         episodes.log('process_name', self.name)
 
         t0 = time.time()
-        for item in self.sample_trajectories(params=params):
+        for item in self.sample_trajectories(policy):
             episodes.append(*item)
         episodes.log('duration', time.time() - t0)
 
@@ -304,12 +302,12 @@ class SamplerWorker(mp.Process):
                                     normalize=True)
         return episodes
 
-    def sample_trajectories(self, params=None):
+    def sample_trajectories(self, policy):
         observations = self.envs.reset()
         with torch.no_grad():
             while not self.envs.dones.all():
                 observations_tensor = torch.from_numpy(observations)
-                pi = self.policy(observations_tensor, params=params)
+                pi = policy(observations_tensor)
                 actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
 

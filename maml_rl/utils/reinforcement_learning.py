@@ -26,9 +26,8 @@ def value_iteration_finite_horizon(transitions, rewards, horizon=10, gamma=0.95)
 def get_returns(episodes):
     return to_numpy([episode.rewards.sum(dim=0) for episode in episodes])
 
-def reinforce_loss(policy, episodes, params=None):
-    pi = policy(episodes.observations.view((-1, *episodes.observation_shape)),
-                params=params)
+def reinforce_loss(policy, episodes):
+    pi = policy(episodes.observations.view((-1, *episodes.observation_shape)))
 
     log_probs = pi.log_prob(episodes.actions.view((-1, *episodes.action_shape)))
     log_probs = log_probs.view(len(episodes), episodes.batch_size)
