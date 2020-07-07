@@ -1,4 +1,5 @@
 import torch
+import higher
 
 from torch.nn.utils.convert_parameters import parameters_to_vector
 from torch.distributions.kl import kl_divergence
@@ -55,21 +56,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
         super(MAMLTRPO, self).__init__(policy, device=device)
         self.fast_lr = fast_lr
         self.first_order = first_order
-
-    async def adapt(self, train_futures, first_order=None):
-        if first_order is None:
-            first_order = self.first_order
-        # Loop over the number of steps of adaptation
-        params = None
-        for futures in train_futures:
-            inner_loss = reinforce_loss(self.policy,
-                                        await futures,
-                                        params=params)
-            params = self.policy.update_params(inner_loss,
-                                               params=params,
-                                               step_size=self.fast_lr,
-                                               first_order=first_order)
-        return params
+        self.inner_optimizer = torch.optim.SGD(self.policy.parameters(),
+                                               lr=fast_lr)
 
     def hessian_vector_product(self, kl, damping=1e-2):
         grads = torch.autograd.grad(kl,
@@ -89,24 +77,29 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
     async def surrogate_loss(self, train_futures, valid_futures, old_pi=None):
         first_order = (old_pi is not None) or self.first_order
-        params = await self.adapt(train_futures,
-                                  first_order=first_order)
+        with higher.innerloop_ctx(self.policy, self.inner_optimizer,
+                copy_initial_weights=False, track_higher_grads=not first_order) as (fpolicy, diffopt):
 
-        with torch.set_grad_enabled(old_pi is None):
-            valid_episodes = await valid_futures
-            pi = self.policy(valid_episodes.observations, params=params)
+            # Loop over the number of steps of adaptation
+            for futures in train_futures:
+                inner_loss = reinforce_loss(fpolicy, await futures)
+                diffopt.step(inner_loss)
 
-            if old_pi is None:
-                old_pi = detach_distribution(pi)
+            with torch.set_grad_enabled(old_pi is None):
+                valid_episodes = await valid_futures
+                pi = fpolicy(valid_episodes.observations)
 
-            log_ratio = (pi.log_prob(valid_episodes.actions)
-                         - old_pi.log_prob(valid_episodes.actions))
-            ratio = torch.exp(log_ratio)
+                if old_pi is None:
+                    old_pi = detach_distribution(pi)
 
-            losses = -weighted_mean(ratio * valid_episodes.advantages,
+                log_ratio = (pi.log_prob(valid_episodes.actions)
+                             - old_pi.log_prob(valid_episodes.actions))
+                ratio = torch.exp(log_ratio)
+
+                losses = -weighted_mean(ratio * valid_episodes.advantages,
+                                        lengths=valid_episodes.lengths)
+                kls = weighted_mean(kl_divergence(pi, old_pi),
                                     lengths=valid_episodes.lengths)
-            kls = weighted_mean(kl_divergence(pi, old_pi),
-                                lengths=valid_episodes.lengths)
 
         return losses.mean(), kls.mean(), old_pi
 
