@@ -18,7 +18,7 @@ class NormalMLPPolicy(Policy):
                  input_size,
                  output_size,
                  hidden_sizes=(),
-                 nonlinearity=F.relu,
+                 nonlinearity=nn.ReLU,
                  init_std=1.0,
                  min_std=1e-6):
         super(NormalMLPPolicy, self).__init__(input_size=input_size,
@@ -29,9 +29,13 @@ class NormalMLPPolicy(Policy):
         self.num_layers = len(hidden_sizes) + 1
 
         layer_sizes = (input_size,) + hidden_sizes
+        layers = []
         for i in range(1, self.num_layers):
-            self.add_module('layer{0}'.format(i),
-                            nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
+            layers.append(('layer{0}'.format(i), nn.Sequential(
+                nn.Linear(layer_sizes[i - 1], layer_sizes[i]),
+                nonlinearity
+            )))
+        self.feature_extraction = nn.Sequential(OrderedDict(layers))
 
         self.mu = nn.Linear(layer_sizes[-1], output_size)
         self.sigma = nn.Parameter(torch.Tensor(output_size))
@@ -39,20 +43,9 @@ class NormalMLPPolicy(Policy):
 
         self.apply(weight_init)
 
-    def forward(self, input, params=None):
-        if params is None:
-            params = OrderedDict(self.named_parameters())
-
-        output = input
-        for i in range(1, self.num_layers):
-            output = F.linear(output,
-                              weight=params['layer{0}.weight'.format(i)],
-                              bias=params['layer{0}.bias'.format(i)])
-            output = self.nonlinearity(output)
-
-        mu = F.linear(output,
-                      weight=params['mu.weight'],
-                      bias=params['mu.bias'])
-        scale = torch.exp(torch.clamp(params['sigma'], min=self.min_log_std))
+    def forward(self, input):
+        output = self.feature_extraction(input)
+        mu = self.mu(output)
+        scale = torch.exp(torch.clamp(self.sigma, min=self.min_log_std))
 
         return Independent(Normal(loc=mu, scale=scale), 1)
