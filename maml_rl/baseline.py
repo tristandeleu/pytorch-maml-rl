@@ -50,8 +50,9 @@ class LinearFeatureBaseline(nn.Module):
 
         # Remove blank (all-zero) episodes that only exist because episode lengths vary
         flat_mask = episodes.mask.flatten()
-        featmat = featmat[torch.nonzero(flat_mask)].view(-1, self.feature_size)
-        returns = returns[torch.nonzero(flat_mask)].view(-1, 1)
+        flat_mask_nnz = torch.nonzero(flat_mask)
+        featmat = featmat[flat_mask_nnz].view(-1, self.feature_size)
+        returns = returns[flat_mask_nnz].view(-1, 1)
 
         reg_coeff = self._reg_coeff
         XT_y = torch.matmul(featmat.t(), returns)
