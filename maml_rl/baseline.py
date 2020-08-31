@@ -48,12 +48,24 @@ class LinearFeatureBaseline(nn.Module):
         # sequence_length * batch_size x 1
         returns = episodes.returns.view(-1, 1)
 
+        # Remove blank (all-zero) episodes that only exist because episode lengths vary
+        flat_mask = episodes.mask.flatten()
+        flat_mask_nnz = torch.nonzero(flat_mask)
+        featmat = featmat[flat_mask_nnz].view(-1, self.feature_size)
+        returns = returns[flat_mask_nnz].view(-1, 1)
+
         reg_coeff = self._reg_coeff
         XT_y = torch.matmul(featmat.t(), returns)
         XT_X = torch.matmul(featmat.t(), featmat)
         for _ in range(5):
             try:
                 coeffs, _ = torch.lstsq(XT_y, XT_X + reg_coeff * self._eye)
+
+                # An extra round of increasing regularization eliminated
+                # inf or nan in the least-squares solution most of the time
+                if torch.isnan(coeffs).any() or torch.isinf(coeffs).any():
+                    raise RuntimeError
+
                 break
             except RuntimeError:
                 reg_coeff *= 10
