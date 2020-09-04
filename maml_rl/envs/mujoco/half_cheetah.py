@@ -1,34 +1,16 @@
 import numpy as np
+from maml_rl.envs.mujoco import mujoco_env
 
-from gym.envs.mujoco import HalfCheetahEnv as HalfCheetahEnv_
+class HalfCheetahEnv(mujoco_env.MujocoEnv):
+    def __init__(self):
+        super(HalfCheetahEnv, self).__init__('half_cheetah.xml', frame_skip=1)
 
-
-class HalfCheetahEnv(HalfCheetahEnv_):
-    def _get_obs(self):
+    def get_current_obs(self):
         return np.concatenate([
             self.sim.data.qpos.flat[1:],
             self.sim.data.qvel.flat,
             self.get_body_com("torso").flat,
         ]).astype(np.float32).flatten()
-
-    def viewer_setup(self):
-        camera_id = self.model.camera_name2id('track')
-        self.viewer.cam.type = 2
-        self.viewer.cam.fixedcamid = camera_id
-        self.viewer.cam.distance = self.model.stat.extent * 0.35
-        # Hide the overlay
-        self.viewer._hide_overlay = True
-
-    def render(self, mode='human'):
-        if mode == 'rgb_array':
-            self._get_viewer().render()
-            # window size used for old mujoco-py:
-            width, height = 500, 500
-            data = self._get_viewer().read_pixels(width, height, depth=False)
-            return data
-        elif mode == 'human':
-            self._get_viewer().render()
-
 
 class HalfCheetahVelEnv(HalfCheetahEnv):
     """Half-cheetah environment with target velocity, as described in [1]. The 
@@ -57,15 +39,13 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         super(HalfCheetahVelEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.sim.data.qpos[0]
-        self.do_simulation(action, self.frame_skip)
-        xposafter = self.sim.data.qpos[0]
+        self.forward_dynamics(action)
 
-        forward_vel = (xposafter - xposbefore) / self.dt
+        forward_vel = self.get_body_comvel("torso")[0]
         forward_reward = -1.0 * abs(forward_vel - self._goal_vel)
         ctrl_cost = 0.5 * 1e-1 * np.sum(np.square(action))
 
-        observation = self._get_obs()
+        observation = self.get_current_obs()
         reward = forward_reward - ctrl_cost
         done = False
         infos = dict(reward_forward=forward_reward,
@@ -107,15 +87,13 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         super(HalfCheetahDirEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.sim.data.qpos[0]
-        self.do_simulation(action, self.frame_skip)
-        xposafter = self.sim.data.qpos[0]
+        self.forward_dynamics(action)
 
-        forward_vel = (xposafter - xposbefore) / self.dt
+        forward_vel = self.get_body_comvel("torso")[0]
         forward_reward = self._goal_dir * forward_vel
         ctrl_cost = 0.5 * 1e-1 * np.sum(np.square(action))
 
-        observation = self._get_obs()
+        observation = self.get_current_obs()
         reward = forward_reward - ctrl_cost
         done = False
         infos = dict(reward_forward=forward_reward,

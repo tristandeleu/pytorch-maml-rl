@@ -1,45 +1,26 @@
 import numpy as np
+from maml_rl.envs.mujoco import mujoco_env
 
-from gym.envs.mujoco import AntEnv as AntEnv_
+class AntEnv(mujoco_env.MujocoEnv):
+    def __init__(self):
+        super(AntEnv, self).__init__('ant.xml', frame_skip=1)
+        self._action_scaling = None
 
-
-class AntEnv(AntEnv_):
     @property
     def action_scaling(self):
-        if (not hasattr(self, 'action_space')) or (self.action_space is None):
-            return 1.0
         if self._action_scaling is None:
             lb, ub = self.action_space.low, self.action_space.high
             self._action_scaling = 0.5 * (ub - lb)
         return self._action_scaling
 
-    def _get_obs(self):
+    def get_current_obs(self):
         return np.concatenate([
             self.sim.data.qpos.flat,
             self.sim.data.qvel.flat,
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
-            self.sim.data.get_body_xmat("torso").flat,
+            self.get_body_xmat("torso").flat,
             self.get_body_com("torso").flat,
         ]).astype(np.float32).flatten()
-
-    def viewer_setup(self):
-        camera_id = self.model.camera_name2id('track')
-        self.viewer.cam.type = 2
-        self.viewer.cam.fixedcamid = camera_id
-        self.viewer.cam.distance = self.model.stat.extent * 0.35
-        # Hide the overlay
-        self.viewer._hide_overlay = True
-
-    def render(self, mode='human'):
-        if mode == 'rgb_array':
-            self._get_viewer().render()
-            # window size used for old mujoco-py:
-            width, height = 500, 500
-            data = self._get_viewer().read_pixels(width, height, depth=False)
-            return data
-        elif mode == 'human':
-            self._get_viewer().render()
-
 
 class AntVelEnv(AntEnv):
     """Ant environment with target velocity, as described in [1]. The 
@@ -69,11 +50,9 @@ class AntVelEnv(AntEnv):
         super(AntVelEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.get_body_com("torso")[0]
-        self.do_simulation(action, self.frame_skip)
-        xposafter = self.get_body_com("torso")[0]
+        self.forward_dynamics(action)
 
-        forward_vel = (xposafter - xposbefore) / self.dt
+        forward_vel = self.get_body_comvel("torso")[0]
         forward_reward = -1.0 * np.abs(forward_vel - self._goal_vel) + 1.0
         survive_reward = 0.05
 
@@ -81,7 +60,7 @@ class AntVelEnv(AntEnv):
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
 
-        observation = self._get_obs()
+        observation = self.get_current_obs()
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \
@@ -129,11 +108,9 @@ class AntDirEnv(AntEnv):
         super(AntDirEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.get_body_com("torso")[0]
-        self.do_simulation(action, self.frame_skip)
-        xposafter = self.get_body_com("torso")[0]
+        self.forward_dynamics(action)
 
-        forward_vel = (xposafter - xposbefore) / self.dt
+        forward_vel = self.get_body_comvel("torso")[0]
         forward_reward = self._goal_dir * forward_vel
         survive_reward = 0.05
 
@@ -141,7 +118,7 @@ class AntDirEnv(AntEnv):
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
 
-        observation = self._get_obs()
+        observation = self.get_current_obs()
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \
@@ -188,7 +165,7 @@ class AntPosEnv(AntEnv):
         super(AntPosEnv, self).__init__()
 
     def step(self, action):
-        self.do_simulation(action, self.frame_skip)
+        self.forward_dynamics(action)
         xyposafter = self.get_body_com("torso")[:2]
 
         goal_reward = -np.sum(np.abs(xyposafter - self._goal_pos)) + 4.0
@@ -198,7 +175,7 @@ class AntPosEnv(AntEnv):
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
 
-        observation = self._get_obs()
+        observation = self.get_current_obs()
         reward = goal_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \

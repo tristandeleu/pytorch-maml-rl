@@ -36,7 +36,7 @@ register(
 )
 
 register(
-    'AntPos-v1',
+    'AntPos-v2',
     entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
     kwargs={'entry_point': 'maml_rl.envs.mujoco.ant:AntPosEnv'}
 )
