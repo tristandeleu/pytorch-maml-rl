@@ -1,4 +1,3 @@
-import maml_rl.envs
 import gym
 import torch
 import json
@@ -8,7 +7,7 @@ from tqdm import trange
 from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
-from maml_rl.utils.reinforcement_learning import get_returns
+from torch.utils.tensorboard import SummaryWriter
 
 try:
     torch.multiprocessing.set_start_method('spawn')
@@ -24,7 +23,7 @@ def main(args):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
 
-    env = gym.make(config['env-name'], **config.get('env-kwargs',{}))
+    env = gym.make(config['env-name'], **config.get('env-kwargs', {}))
     env.close()
 
     # Policy
@@ -49,26 +48,24 @@ def main(args):
                                seed=args.seed,
                                num_workers=args.num_workers)
 
-    logs = {'tasks': []}
-    train_returns, valid_returns = [], []
-    for batch in trange(args.num_batches):
-        tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
+    tblog_folder = os.path.join(config['output_folder'], 'log')
+    writer = SummaryWriter(tblog_folder)
+
+    tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
+
+    for steps in trange(config['num-steps']):
         train_episodes, valid_episodes = sampler.sample(tasks,
-                                                        num_steps=config['num-steps'],
+                                                        num_steps=steps,
                                                         fast_lr=config['fast-lr'],
                                                         gamma=config['gamma'],
                                                         gae_lambda=config['gae-lambda'],
                                                         device=args.device)
-
-        logs['tasks'].extend(tasks)
-        train_returns.append(get_returns(train_episodes[0]))
-        valid_returns.append(get_returns(valid_episodes))
-        print(torch.sum(valid_episodes[0].rewards, dim=0))
-    logs['train_returns'] = np.concatenate(train_returns, axis=0)
-    logs['valid_returns'] = np.concatenate(valid_returns, axis=0)
-
-    with open(args.output, 'wb') as f:
-        np.savez(f, **logs)
+        rewards = []
+        for id in range(len(tasks)):
+            reward = valid_episodes[id].rewards.sum()
+            writer.add_scalar(f'Eval_Reward/Task_{id}', reward, steps)
+            rewards.append(reward.cpu().numpy())
+        writer.add_scalar('Eval_Reward/Mean', np.mean(rewards), steps)
 
 
 if __name__ == '__main__':
