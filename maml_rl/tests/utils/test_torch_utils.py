@@ -9,7 +9,7 @@ from maml_rl.utils.torch_utils import (weighted_mean, weighted_normalize,
 
 
 def test_weighted_mean():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
     for i, length in enumerate(lengths):
@@ -33,7 +33,7 @@ def test_weighted_mean():
 
 
 def test_weighted_mean_multi_dimensional():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5, 17, 19).astype(np.float32)
     for i, length in enumerate(lengths):
@@ -57,7 +57,7 @@ def test_weighted_mean_multi_dimensional():
 
 
 def test_weighted_mean_side_effect():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
 
@@ -71,7 +71,7 @@ def test_weighted_mean_side_effect():
 
 
 def test_weighted_normalize():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
 

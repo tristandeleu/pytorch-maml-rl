@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from collections import OrderedDict
 
+
 class LinearFeatureBaseline(nn.Module):
     """Linear baseline based on handcrafted features, as described in [1] 
     (Supplementary Material 2).
@@ -12,13 +13,15 @@ class LinearFeatureBaseline(nn.Module):
         "Benchmarking Deep Reinforcement Learning for Continuous Control", 2016 
         (https://arxiv.org/abs/1604.06778)
     """
-    def __init__(self, input_size, reg_coeff=1e-5):
+
+    def __init__(self, input_size, reg_coeff=1e-5, device='cpu'):
         super(LinearFeatureBaseline, self).__init__()
         self.input_size = input_size
+        self._device = device
         self._reg_coeff = reg_coeff
 
-        self.weight = nn.Parameter(torch.Tensor(self.feature_size,),
-                                   requires_grad=False)
+        self.weight = nn.Parameter(torch.Tensor(self.feature_size, ),
+                                   requires_grad=False).to(self._device)
         self.weight.data.zero_()
         self._eye = torch.eye(self.feature_size,
                               dtype=torch.float32,
@@ -31,7 +34,7 @@ class LinearFeatureBaseline(nn.Module):
     def _feature(self, episodes):
         ones = episodes.mask.unsqueeze(2)
         observations = episodes.observations
-        time_step = torch.arange(len(episodes)).view(-1, 1, 1) * ones / 100.0
+        time_step = torch.arange(len(episodes), device=self._device).view(-1, 1, 1) * ones / 100.0
 
         return torch.cat([
             observations,
@@ -71,9 +74,9 @@ class LinearFeatureBaseline(nn.Module):
                 reg_coeff *= 10
         else:
             raise RuntimeError('Unable to solve the normal equations in '
-                '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
-                'matrix) is not full-rank, regardless of the regularization '
-                '(maximum regularization: {0}).'.format(reg_coeff))
+                               '`LinearFeatureBaseline`. The matrix X^T*X (with X the design '
+                               'matrix) is not full-rank, regardless of the regularization '
+                               '(maximum regularization: {0}).'.format(reg_coeff))
         self.weight.copy_(coeffs.flatten())
 
     def forward(self, episodes):

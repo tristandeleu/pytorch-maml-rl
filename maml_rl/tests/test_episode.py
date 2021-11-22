@@ -16,7 +16,7 @@ def test_batch_episodes(batch_size):
 
 
 def test_batch_episodes_append():
-    lengths = [2, 3, 7, 5, 13, 11, 17]
+    lengths = torch.tensor([2, 3, 7, 5, 13, 11, 17])
     envs = SyncVectorEnv([make_unittest_env(length) for length in lengths])
     episodes = BatchEpisodes(batch_size=len(lengths), gamma=0.95)
 
@@ -28,7 +28,7 @@ def test_batch_episodes_append():
         observations = new_observations
 
     assert len(episodes) == 17
-    assert episodes.lengths == lengths
+    assert torch.all(torch.eq(episodes.lengths, lengths))
     
     # Observations
     assert episodes.observations.shape == (17, 7, 64, 64, 3)

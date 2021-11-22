@@ -11,6 +11,12 @@ from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
 from maml_rl.utils.reinforcement_learning import get_returns
+from torch.utils.tensorboard import SummaryWriter
+
+try:
+    torch.multiprocessing.set_start_method('spawn')
+except RuntimeError:
+    pass
 
 
 def main(args):
@@ -22,6 +28,9 @@ def main(args):
             os.makedirs(args.output_folder)
         policy_filename = os.path.join(args.output_folder, 'policy.th')
         config_filename = os.path.join(args.output_folder, 'config.json')
+        tblog_folder = os.path.join(args.output_folder, 'log')
+        if not os.path.exists(tblog_folder):
+            os.makedirs(tblog_folder)
 
         with open(config_filename, 'w') as f:
             config.update(vars(args))
@@ -37,11 +46,11 @@ def main(args):
     # Policy
     policy = get_policy_for_env(env,
                                 hidden_sizes=config['hidden-sizes'],
-                                nonlinearity=config['nonlinearity'])
+                                nonlinearity=config['nonlinearity'], device=args.device)
     policy.share_memory()
 
     # Baseline
-    baseline = LinearFeatureBaseline(get_input_size(env))
+    baseline = LinearFeatureBaseline(get_input_size(env), device=args.device).to(args.device)
 
     # Sampler
     sampler = MultiTaskSampler(config['env-name'],
@@ -57,6 +66,7 @@ def main(args):
                            fast_lr=config['fast-lr'],
                            first_order=config['first-order'],
                            device=args.device)
+    writer = SummaryWriter(tblog_folder)
 
     num_iterations = 0
     for batch in trange(config['num-batches']):
@@ -73,6 +83,8 @@ def main(args):
                                 cg_damping=config['cg-damping'],
                                 ls_max_steps=config['ls-max-steps'],
                                 ls_backtrack_ratio=config['ls-backtrack-ratio'])
+        writer.add_scalar('loss_mean', logs['loss_after'].mean(), batch)
+        writer.add_scalar('kl_mean', logs['kl_after'].mean(), batch)
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
         num_iterations += sum(sum(episode.lengths) for episode in train_episodes[0])
@@ -108,7 +120,7 @@ if __name__ == '__main__':
         help='number of workers for trajectories sampling (default: '
              '{0})'.format(mp.cpu_count() - 1))
     misc.add_argument('--use-cuda', action='store_true',
-        help='use cuda (default: false, use cpu). WARNING: Full upport for cuda '
+        help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
         'is not guaranteed. Using CPU is encouraged.')
 
     args = parser.parse_args()

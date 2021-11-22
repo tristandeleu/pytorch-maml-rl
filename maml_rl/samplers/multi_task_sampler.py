@@ -64,6 +64,7 @@ class MultiTaskSampler(Sampler):
         not have to be equal to the number of tasks in a batch (ie. `meta_batch_size`),
         and can scale with the amount of CPUs available instead.
     """
+
     def __init__(self,
                  env_name,
                  env_kwargs,
@@ -100,7 +101,7 @@ class MultiTaskSampler(Sampler):
                                       self.train_episodes_queue,
                                       self.valid_episodes_queue,
                                       policy_lock)
-            for index in range(num_workers)]
+                        for index in range(num_workers)]
 
         for worker in self.workers:
             worker.daemon = True
@@ -138,7 +139,7 @@ class MultiTaskSampler(Sampler):
         async def _wait(train_futures, valid_futures):
             # Gather the train and valid episodes
             train_episodes = await asyncio.gather(*[asyncio.gather(*futures)
-                                                  for futures in train_futures])
+                                                    for futures in train_futures])
             valid_episodes = await asyncio.gather(*valid_futures)
             return (train_episodes, valid_episodes)
 
@@ -168,18 +169,18 @@ class MultiTaskSampler(Sampler):
         train_episodes_futures = [[self._event_loop.create_future() for _ in tasks]
                                   for _ in range(num_steps)]
         self._train_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.train_episodes_queue, train_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='train-consumer')
+                                                       args=(self.train_episodes_queue, train_episodes_futures),
+                                                       kwargs={'loop': self._event_loop},
+                                                       name='train-consumer')
         self._train_consumer_thread.daemon = True
         self._train_consumer_thread.start()
 
         # Start valid episodes consumer thread
         valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
         self._valid_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.valid_episodes_queue, valid_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='valid-consumer')
+                                                       args=(self.valid_episodes_queue, valid_episodes_futures),
+                                                       kwargs={'loop': self._event_loop},
+                                                       name='valid-consumer')
         self._valid_consumer_thread.daemon = True
         self._valid_consumer_thread.start()
 
@@ -294,7 +295,7 @@ class SamplerWorker(mp.Process):
         episodes.log('process_name', self.name)
 
         t0 = time.time()
-        for item in self.sample_trajectories(params=params):
+        for item in self.sample_trajectories(params=params, device=device):
             episodes.append(*item)
         episodes.log('duration', time.time() - t0)
 
@@ -304,11 +305,11 @@ class SamplerWorker(mp.Process):
                                     normalize=True)
         return episodes
 
-    def sample_trajectories(self, params=None):
+    def sample_trajectories(self, params=None, device='cpu'):
         observations = self.envs.reset()
         with torch.no_grad():
             while not self.envs.dones.all():
-                observations_tensor = torch.from_numpy(observations)
+                observations_tensor = torch.from_numpy(observations).to(device)
                 pi = self.policy(observations_tensor, params=params)
                 actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
