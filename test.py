@@ -24,7 +24,6 @@ def main(args):
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
 
-    # env = gym.make(config['env-name'])
     env = gym.make(config['env-name'], **config.get('env-kwargs',{}))
     env.close()
 
