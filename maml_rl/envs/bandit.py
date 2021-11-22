@@ -23,7 +23,7 @@ class BernoulliBanditEnv(gym.Env):
         self.k = k
 
         self.action_space = spaces.Discrete(self.k)
-        self.observation_space = spaces.Box(low=0, high=0,
+        self.observation_space = spaces.Box(low=1, high=1,
             shape=(1,), dtype=np.float32)
 
         self._task = task
@@ -44,13 +44,13 @@ class BernoulliBanditEnv(gym.Env):
         self._means = task['mean']
 
     def reset(self):
-        return np.zeros(1, dtype=np.float32)
+        return np.ones(1, dtype=np.float32)
 
     def step(self, action):
         assert self.action_space.contains(action)
         mean = self._means[action]
         reward = self.np_random.binomial(1, mean)
-        observation = np.zeros(1, dtype=np.float32)
+        observation = np.ones(1, dtype=np.float32)
 
         return observation, reward, True, {'task': self._task}
 
