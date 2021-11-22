@@ -25,7 +25,7 @@ def test_weighted_mean():
         for j in range(13):
             if j < length:
                 mean_np[i] += inputs_np[j, i]
-        mean_np[i] /= length
+        mean_np[i] /= length.numpy()
 
     assert mean_th.dim() == 1
     assert mean_th.shape == (5,)
@@ -49,7 +49,7 @@ def test_weighted_mean_multi_dimensional():
         for j in range(13):
             if j < length:
                 mean_np[i] += inputs_np[j, i]
-        mean_np[i] /= length
+        mean_np[i] /= length.numpy()
 
     assert mean_th.dim() == 3
     assert mean_th.shape == (5, 17, 19)
