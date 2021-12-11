@@ -34,7 +34,11 @@ def main(args):
 
         with open(config_filename, 'w') as f:
             config.update(vars(args))
+            if config['env-name'] == 'AntPos-v1':
+                config['env-kwargs']['type'] = str(int(config['env-kwargs']['type']) + 4)
             json.dump(config, f, indent=2)
+            if config['env-name'] == 'AntPos-v1':
+                config['env-kwargs']['type'] = str(int(config['env-kwargs']['type']) - 4)
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -105,26 +109,26 @@ if __name__ == '__main__':
     import multiprocessing as mp
 
     parser = argparse.ArgumentParser(description='Reinforcement learning with '
-        'Model-Agnostic Meta-Learning (MAML) - Train')
+                                                 'Model-Agnostic Meta-Learning (MAML) - Train')
 
     parser.add_argument('--config', type=str, required=True,
-        help='path to the configuration file.')
+                        help='path to the configuration file.')
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
     misc.add_argument('--output-folder', type=str,
-        help='name of the output folder')
+                      help='name of the output folder')
     misc.add_argument('--seed', type=int, default=None,
-        help='random seed')
+                      help='random seed')
     misc.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
-        help='number of workers for trajectories sampling (default: '
-             '{0})'.format(mp.cpu_count() - 1))
+                      help='number of workers for trajectories sampling (default: '
+                           '{0})'.format(mp.cpu_count() - 1))
     misc.add_argument('--use-cuda', action='store_true',
-        help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
-        'is not guaranteed. Using CPU is encouraged.')
+                      help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
+                           'is not guaranteed. Using CPU is encouraged.')
 
     args = parser.parse_args()
     args.device = ('cuda' if (torch.cuda.is_available()
-                   and args.use_cuda) else 'cpu')
+                              and args.use_cuda) else 'cpu')
 
     main(args)

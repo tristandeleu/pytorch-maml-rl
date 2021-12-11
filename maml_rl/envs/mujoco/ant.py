@@ -59,6 +59,7 @@ class AntVelEnv(AntEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
+
     def __init__(self, task={}, low=0.0, high=3.0):
         self._task = task
         self.low = low
@@ -85,7 +86,7 @@ class AntVelEnv(AntEnv):
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \
-            and state[2] >= 0.2 and state[2] <= 1.0
+                  and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
         infos = dict(reward_forward=forward_reward,
                      reward_ctrl=-ctrl_cost,
@@ -122,6 +123,7 @@ class AntDirEnv(AntEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
+
     def __init__(self, task={}):
         self._task = task
         self._goal_dir = task.get('direction', 1)
@@ -145,7 +147,7 @@ class AntDirEnv(AntEnv):
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \
-            and state[2] >= 0.2 and state[2] <= 1.0
+                  and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
         infos = dict(reward_forward=forward_reward,
                      reward_ctrl=-ctrl_cost,
@@ -164,6 +166,11 @@ class AntDirEnv(AntEnv):
         self._goal_dir = task['direction']
 
 
+GOAL_CONFIG = {'1': (0, np.pi / 2), '2': (0, np.pi), '3': (0, (np.pi + np.pi / 2)), '4': (0, 2 * np.pi),
+               '5': (np.pi / 2, 2 * np.pi), '6': (np.pi, 2 * np.pi), '7': (np.pi / 2 + np.pi, 2 * np.pi),
+               '8': (0, 2 * np.pi)}
+
+
 class AntPosEnv(AntEnv):
     """Ant environment with target position. The code is adapted from
     https://github.com/cbfinn/maml_rl/blob/9c8e2ebd741cb0c7b8bf2d040c4caeeb8e06cc95/rllab/envs/mujoco/ant_env_rand_goal.py
@@ -178,10 +185,10 @@ class AntPosEnv(AntEnv):
         model-based control", 2012 
         (https://homes.cs.washington.edu/~todorov/papers/TodorovIROS12.pdf)
     """
-    def __init__(self, task={}, low=-3.0, high=3.0):
+
+    def __init__(self, task={}, type='4'):
         self._task = task
-        self.low = low
-        self.high = high
+        self.low, self.high = GOAL_CONFIG[type]
 
         self._goal_pos = task.get('position', np.zeros((2,), dtype=np.float32))
         self._action_scaling = None
@@ -202,7 +209,7 @@ class AntPosEnv(AntEnv):
         reward = goal_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
         notdone = np.isfinite(state).all() \
-            and state[2] >= 0.2 and state[2] <= 1.0
+                  and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
         infos = dict(reward_goal=goal_reward,
                      reward_ctrl=-ctrl_cost,
@@ -212,8 +219,8 @@ class AntPosEnv(AntEnv):
         return (observation, reward, done, infos)
 
     def sample_tasks(self, num_tasks):
-        positions = self.np_random.uniform(self.low, self.high, size=(num_tasks, 2))
-        tasks = [{'position': position} for position in positions]
+        positions = self.np_random.uniform(self.low, self.high, size=num_tasks)
+        tasks = [{'position': (3 * np.cos(position), 3 * np.sin(position))} for position in positions]
         return tasks
 
     def reset_task(self, task):

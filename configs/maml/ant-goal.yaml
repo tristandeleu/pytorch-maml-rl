@@ -5,8 +5,7 @@ env-name: "AntPos-v1"
 
 # Additional parameters for the environment (eg. bound for task sampling).
 env-kwargs:
-  low: -3.0
-  high: 3.0
+  type: '4'
   normalization_scale: 10.0
   max_episode_steps: 100
 
