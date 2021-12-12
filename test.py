@@ -48,10 +48,10 @@ def main(args):
                                seed=args.seed,
                                num_workers=args.num_workers)
 
-    tblog_folder = os.path.join(config['output_folder'], 'log')
-    writer = SummaryWriter(tblog_folder)
-
     tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
+
+    tblog_folder = os.path.join(args.output, 'tb' + str(args.seed))
+    writer = SummaryWriter(tblog_folder)
 
     for steps in trange(config['num-steps']):
         train_episodes, valid_episodes = sampler.sample(tasks,
