@@ -26,10 +26,11 @@ if __name__ == "__main__":
             except:
                 continue
         means = np.asarray(means)[:, :SIZE]
+        means = means / 6
         mean = np.mean(means, axis=0)
         std = np.std(means, axis=0)
         ticks = np.arange(SIZE)
-        ci = 1.96 * std / np.sqrt(mean.shape[0])
+        ci = 1.96 * std / np.sqrt(3)
 
         plt.plot(ticks, mean, LINES1[type], label=label)
         plt.fill_between(ticks, (mean - ci), (mean + ci), alpha=.2)
@@ -37,6 +38,5 @@ if __name__ == "__main__":
     plt.title('Ant-Dir Environment')
     plt.xlabel('Gradient Steps')
     plt.ylabel('Average Reward')
-    # plt.xscale('log')
     plt.grid(True)
-    plt.savefig('ant_dir.pdf')
+    plt.savefig('ant_dir_maml_adapt.pdf')
