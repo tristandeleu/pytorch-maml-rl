@@ -14,6 +14,7 @@ pip install -r requirements.txt
 ## Reproduce results
 
 Parameter --type denotes the amount of quaters included during training.
+
 Parameter --num-steps denotes the amount of gradient steps to take.
 
 #### Training
