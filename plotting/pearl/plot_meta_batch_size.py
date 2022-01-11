@@ -49,7 +49,9 @@ if __name__ == "__main__":
         means = list(map(lambda x: x[:min_len], means))
         plot(means, steps, type)
 
-    plt.legend()
+    handles, labels = plt.gca().get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: int(t[0])))
+    plt.legend(handles, labels)
     plt.title('Meta-Batch Size')
     plt.xlabel('Samples Collected')
     plt.ylabel('Average Reward')

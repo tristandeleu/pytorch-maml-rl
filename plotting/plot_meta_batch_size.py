@@ -53,11 +53,13 @@ if __name__ == "__main__":
 
     plot(means, steps, prev)
 
-    plt.legend()
+    handles, labels = plt.gca().get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: int(t[0])))
+    plt.legend(handles, labels)
     plt.title('Meta-Batch Size')
     plt.xlabel('Samples Collected')
     plt.ylabel('Average Reward')
     plt.grid(True)
     plt.xlim(b, e)
     plt.xscale('log')
-    plt.savefig('ant_dir_rl2_n_tasks.pdf')
+    plt.savefig('ant_dir_rl2_meta_batch_size.pdf')
