@@ -11,21 +11,36 @@ from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
 from maml_rl.utils.reinforcement_learning import get_returns
+from torch.utils.tensorboard import SummaryWriter
+
+try:
+    torch.multiprocessing.set_start_method('spawn')
+except RuntimeError:
+    pass
 
 
 def main(args):
     with open(args.config, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    if args.type is not None:
+        config['env-kwargs']['type'] = args.type
 
     if args.output_folder is not None:
         if not os.path.exists(args.output_folder):
             os.makedirs(args.output_folder)
         policy_filename = os.path.join(args.output_folder, 'policy.th')
         config_filename = os.path.join(args.output_folder, 'config.json')
+        tblog_folder = os.path.join(args.output_folder, 'log')
+        if not os.path.exists(tblog_folder):
+            os.makedirs(tblog_folder)
 
         with open(config_filename, 'w') as f:
             config.update(vars(args))
+            if config['env-name'] == 'AntPos-v1':
+                config['env-kwargs']['type'] = str(int(config['env-kwargs']['type']) + 4)
             json.dump(config, f, indent=2)
+            if config['env-name'] == 'AntPos-v1':
+                config['env-kwargs']['type'] = str(int(config['env-kwargs']['type']) - 4)
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -37,11 +52,11 @@ def main(args):
     # Policy
     policy = get_policy_for_env(env,
                                 hidden_sizes=config['hidden-sizes'],
-                                nonlinearity=config['nonlinearity'])
+                                nonlinearity=config['nonlinearity'], device=args.device)
     policy.share_memory()
 
     # Baseline
-    baseline = LinearFeatureBaseline(get_input_size(env))
+    baseline = LinearFeatureBaseline(get_input_size(env), device=args.device).to(args.device)
 
     # Sampler
     sampler = MultiTaskSampler(config['env-name'],
@@ -57,6 +72,7 @@ def main(args):
                            fast_lr=config['fast-lr'],
                            first_order=config['first-order'],
                            device=args.device)
+    writer = SummaryWriter(tblog_folder)
 
     num_iterations = 0
     for batch in trange(config['num-batches']):
@@ -73,6 +89,8 @@ def main(args):
                                 cg_damping=config['cg-damping'],
                                 ls_max_steps=config['ls-max-steps'],
                                 ls_backtrack_ratio=config['ls-backtrack-ratio'])
+        writer.add_scalar('loss_mean', logs['loss_after'].mean(), batch)
+        writer.add_scalar('kl_mean', logs['kl_after'].mean(), batch)
 
         train_episodes, valid_episodes = sampler.sample_wait(futures)
         num_iterations += sum(sum(episode.lengths) for episode in train_episodes[0])
@@ -93,26 +111,28 @@ if __name__ == '__main__':
     import multiprocessing as mp
 
     parser = argparse.ArgumentParser(description='Reinforcement learning with '
-        'Model-Agnostic Meta-Learning (MAML) - Train')
+                                                 'Model-Agnostic Meta-Learning (MAML) - Train')
 
     parser.add_argument('--config', type=str, required=True,
-        help='path to the configuration file.')
+                        help='path to the configuration file.')
 
     # Miscellaneous
     misc = parser.add_argument_group('Miscellaneous')
     misc.add_argument('--output-folder', type=str,
-        help='name of the output folder')
+                      help='name of the output folder')
     misc.add_argument('--seed', type=int, default=None,
-        help='random seed')
+                      help='random seed')
     misc.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
-        help='number of workers for trajectories sampling (default: '
-             '{0})'.format(mp.cpu_count() - 1))
+                      help='number of workers for trajectories sampling (default: '
+                           '{0})'.format(mp.cpu_count() - 1))
     misc.add_argument('--use-cuda', action='store_true',
-        help='use cuda (default: false, use cpu). WARNING: Full upport for cuda '
-        'is not guaranteed. Using CPU is encouraged.')
+                      help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
+                           'is not guaranteed. Using CPU is encouraged.')
+    misc.add_argument('--type', choices=['1', '2', '3', '4'], required=False, default='4',
+                      help='type of out-of-distribution experiment')
 
     args = parser.parse_args()
     args.device = ('cuda' if (torch.cuda.is_available()
-                   and args.use_cuda) else 'cpu')
+                              and args.use_cuda) else 'cpu')
 
     main(args)

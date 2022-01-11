@@ -9,7 +9,7 @@ from maml_rl.utils.torch_utils import (weighted_mean, weighted_normalize,
 
 
 def test_weighted_mean():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
     for i, length in enumerate(lengths):
@@ -25,7 +25,7 @@ def test_weighted_mean():
         for j in range(13):
             if j < length:
                 mean_np[i] += inputs_np[j, i]
-        mean_np[i] /= length
+        mean_np[i] /= length.numpy()
 
     assert mean_th.dim() == 1
     assert mean_th.shape == (5,)
@@ -33,7 +33,7 @@ def test_weighted_mean():
 
 
 def test_weighted_mean_multi_dimensional():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5, 17, 19).astype(np.float32)
     for i, length in enumerate(lengths):
@@ -49,7 +49,7 @@ def test_weighted_mean_multi_dimensional():
         for j in range(13):
             if j < length:
                 mean_np[i] += inputs_np[j, i]
-        mean_np[i] /= length
+        mean_np[i] /= length.numpy()
 
     assert mean_th.dim() == 3
     assert mean_th.shape == (5, 17, 19)
@@ -57,7 +57,7 @@ def test_weighted_mean_multi_dimensional():
 
 
 def test_weighted_mean_side_effect():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
 
@@ -71,7 +71,7 @@ def test_weighted_mean_side_effect():
 
 
 def test_weighted_normalize():
-    lengths = [2, 3, 7, 5, 11]
+    lengths = torch.tensor([2, 3, 7, 5, 11])
     # Inputs
     inputs_np = np.random.rand(13, 5).astype(np.float32)
 

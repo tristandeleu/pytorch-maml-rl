@@ -7,7 +7,7 @@ from operator import mul
 from maml_rl.policies import CategoricalMLPPolicy, NormalMLPPolicy
 
 
-def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
+def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu', device='cpu'):
     continuous_actions = isinstance(env.action_space, gym.spaces.Box)
     input_size = get_input_size(env)
     nonlinearity = getattr(torch, nonlinearity)
@@ -17,13 +17,13 @@ def get_policy_for_env(env, hidden_sizes=(100, 100), nonlinearity='relu'):
         policy = NormalMLPPolicy(input_size,
                                  output_size,
                                  hidden_sizes=tuple(hidden_sizes),
-                                 nonlinearity=nonlinearity)
+                                 nonlinearity=nonlinearity).to(device)
     else:
         output_size = env.action_space.n
         policy = CategoricalMLPPolicy(input_size,
                                       output_size,
                                       hidden_sizes=tuple(hidden_sizes),
-                                      nonlinearity=nonlinearity)
+                                      nonlinearity=nonlinearity).to(device)
     return policy
 
 def get_input_size(env):

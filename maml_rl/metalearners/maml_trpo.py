@@ -128,7 +128,8 @@ class MAMLTRPO(GradientBasedMetaLearner):
 
         logs['loss_before'] = to_numpy(old_losses)
         logs['kl_before'] = to_numpy(old_kls)
-
+        logs['loss_after'] = to_numpy(old_losses)
+        logs['kl_after'] = to_numpy(old_kls)
         old_loss = sum(old_losses) / num_tasks
         grads = torch.autograd.grad(old_loss,
                                     self.policy.parameters(),
