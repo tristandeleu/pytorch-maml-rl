@@ -18,6 +18,7 @@ except RuntimeError:
 def main(args):
     with open(args.config, 'r') as f:
         config = json.load(f)
+    config['num-steps'] = args.num_steps
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
@@ -100,6 +101,7 @@ if __name__ == '__main__':
     misc.add_argument('--use-cuda', action='store_true',
                       help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
                            'is not guaranteed. Using CPU is encouraged.')
+    misc.add_argument('--num-steps', type=int, default=10, required=True, help='number of gradient steps to take')
 
     args = parser.parse_args()
     args.device = ('cuda' if (torch.cuda.is_available()

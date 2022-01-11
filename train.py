@@ -22,6 +22,8 @@ except RuntimeError:
 def main(args):
     with open(args.config, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    if args.type is not None:
+        config['env-kwargs']['type'] = args.type
 
     if args.output_folder is not None:
         if not os.path.exists(args.output_folder):
@@ -126,6 +128,8 @@ if __name__ == '__main__':
     misc.add_argument('--use-cuda', action='store_true',
                       help='use cuda (default: false, use cpu). WARNING: Full support for cuda '
                            'is not guaranteed. Using CPU is encouraged.')
+    misc.add_argument('--type', choices=['1', '2', '3', '4'], required=False, default='4',
+                      help='type of out-of-distribution experiment')
 
     args = parser.parse_args()
     args.device = ('cuda' if (torch.cuda.is_available()
