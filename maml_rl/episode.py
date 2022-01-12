@@ -4,11 +4,12 @@ import torch.nn.functional as F
 
 from maml_rl.utils.torch_utils import weighted_normalize
 
+
 class BatchEpisodes(object):
     def __init__(self, batch_size, gamma=0.95, device='cpu'):
         self.batch_size = batch_size
         self.gamma = gamma
-        self.device = device
+        self._device = device
 
         self._observations_list = [[] for _ in range(batch_size)]
         self._actions_list = [[] for _ in range(batch_size)]
@@ -49,7 +50,7 @@ class BatchEpisodes(object):
                 np.stack(self._observations_list[i],
                          axis=0,
                          out=observations[:length, i])
-            self._observations = torch.as_tensor(observations, device=self.device)
+            self._observations = torch.as_tensor(observations, device=self._device)
             del self._observations_list
         return self._observations
 
@@ -62,7 +63,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 np.stack(self._actions_list[i], axis=0, out=actions[:length, i])
-            self._actions = torch.as_tensor(actions, device=self.device)
+            self._actions = torch.as_tensor(actions, device=self._device)
             del self._actions_list
         return self._actions
 
@@ -73,7 +74,7 @@ class BatchEpisodes(object):
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 np.stack(self._rewards_list[i], axis=0, out=rewards[:length, i])
-            self._rewards = torch.as_tensor(rewards, device=self.device)
+            self._rewards = torch.as_tensor(rewards, device=self._device)
             del self._rewards_list
         return self._rewards
 
@@ -81,7 +82,7 @@ class BatchEpisodes(object):
     def returns(self):
         if self._returns is None:
             self._returns = torch.zeros_like(self.rewards)
-            return_ = torch.zeros((self.batch_size,), dtype=torch.float32)
+            return_ = torch.zeros((self.batch_size,), dtype=torch.float32, device=self._device)
             for i in range(len(self) - 1, -1, -1):
                 return_ = self.gamma * return_ + self.rewards[i] * self.mask[i]
                 self._returns[i] = return_
@@ -92,7 +93,7 @@ class BatchEpisodes(object):
         if self._mask is None:
             self._mask = torch.zeros((len(self), self.batch_size),
                                      dtype=torch.float32,
-                                     device=self.device)
+                                     device=self._device)
             for i in range(self.batch_size):
                 length = self.lengths[i]
                 self._mask[:length, i].fill_(1.0)
@@ -132,7 +133,7 @@ class BatchEpisodes(object):
         # Compute the advantages based on the values
         deltas = self.rewards + self.gamma * values[1:] - values[:-1]
         self._advantages = torch.zeros_like(self.rewards)
-        gae = torch.zeros((self.batch_size,), dtype=torch.float32)
+        gae = torch.zeros((self.batch_size,), dtype=torch.float32, device=self._device)
         for i in range(len(self) - 1, -1, -1):
             gae = gae * self.gamma * gae_lambda + deltas[i]
             self._advantages[i] = gae
@@ -151,7 +152,7 @@ class BatchEpisodes(object):
     @property
     def lengths(self):
         if self._lengths is None:
-            self._lengths = [len(rewards) for rewards in self._rewards_list]
+            self._lengths = torch.tensor([len(rewards) for rewards in self._rewards_list], device=self._device)
         return self._lengths
 
     def __len__(self):

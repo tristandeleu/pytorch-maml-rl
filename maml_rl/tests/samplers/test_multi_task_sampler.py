@@ -18,11 +18,11 @@ def test_init(env_name, num_workers):
     env = gym.make(env_name)
     env.close()
     # Policy and Baseline
-    policy = get_policy_for_env(env)
-    baseline = LinearFeatureBaseline(get_input_size(env))
+    policy = get_policy_for_env(env, device='cpu')
+    baseline = LinearFeatureBaseline(get_input_size(env), device='cpu')
 
     sampler = MultiTaskSampler(env_name,
-                               {}, # env_kwargs
+                               {},  # env_kwargs
                                batch_size,
                                policy,
                                baseline,
@@ -40,11 +40,11 @@ def test_sample(env_name, batch_size, num_tasks, num_steps, num_workers):
     env = gym.make(env_name)
     env.close()
     # Policy and Baseline
-    policy = get_policy_for_env(env)
-    baseline = LinearFeatureBaseline(get_input_size(env))
+    policy = get_policy_for_env(env, device='cpu')
+    baseline = LinearFeatureBaseline(get_input_size(env),device='cpu')
 
     sampler = MultiTaskSampler(env_name,
-                               {}, # env_kwargs
+                               {},  # env_kwargs
                                batch_size,
                                policy,
                                baseline,
