@@ -9,9 +9,13 @@ from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSampler
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
 from maml_rl.utils.reinforcement_learning import get_returns
-
+import wandb
+wandb.init(project="maml")
 
 def main(args):
+
+    wandb.config.update(args)
+
     with open(args.config, 'r') as f:
         config = json.load(f)
 
@@ -30,6 +34,7 @@ def main(args):
         state_dict = torch.load(f, map_location=torch.device(args.device))
         policy.load_state_dict(state_dict)
     policy.share_memory()
+    wandb.watch(policy)
 
     # Baseline
     baseline = LinearFeatureBaseline(get_input_size(env))
@@ -58,6 +63,10 @@ def main(args):
         logs['tasks'].extend(tasks)
         train_returns.append(get_returns(train_episodes[0]))
         valid_returns.append(get_returns(valid_episodes))
+        wandb.log({
+            'train_returns': train_returns,
+            'valid_returns': valid_returns
+        })
 
     logs['train_returns'] = np.concatenate(train_returns, axis=0)
     logs['valid_returns'] = np.concatenate(valid_returns, axis=0)
