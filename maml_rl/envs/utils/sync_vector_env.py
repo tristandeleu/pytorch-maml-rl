@@ -34,6 +34,7 @@ class SyncVectorEnv(SyncVectorEnv_):
         num_actions = len(self._actions)
         rewards = np.zeros((num_actions,), dtype=np.float_)
         for i, env in enumerate(self.envs):
+            # env.render()
             if self._dones[i]:
                 continue
 
