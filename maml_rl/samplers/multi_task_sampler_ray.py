@@ -200,8 +200,10 @@ class SamplerWorker(object):
         self.workers = [RolloutWorker.remote(
             index=index,
             policy=self.policy,
+            batch_size=batch_size,
             env_name=env_name,
-            env_kwargs=env_kwargs
+            env_kwargs=env_kwargs,
+            baseline=baseline
         )
         for index in range(num_workers)]
 
@@ -255,30 +257,31 @@ class SamplerWorker(object):
 
 
             params=None
-            train_episodes = []
+            # train_episodes = []
             for step in range(num_steps):
-                train_episode = self.create_episodes(tasks,
+                train_episodes = self.create_episodes(tasks,
                                                     params=params,
                                                     gamma=gamma,
                                                     gae_lambda=gae_lambda,
                                                     device=device)
-                train_episode.log('_enqueueAt', datetime.now(timezone.utc))
-                train_episodes.append(train_episode)
+                for train_episode in train_episodes:
+                    train_episode.log('_enqueueAt', datetime.now(timezone.utc))
 
-                loss = reinforce_loss(self.policy, train_episode, params=params)
+                    loss = reinforce_loss(self.policy, train_episode, params=params)
 
-                params = self.policy.update_params(loss,
-                                                params=params,
-                                                step_size=fast_lr,
-                                                first_order=True)
+                    params = self.policy.update_params(loss,
+                                                    params=params,
+                                                    step_size=fast_lr,
+                                                    first_order=True)
             valid_episodes = self.create_episodes(tasks,
                                                 params=params,
                                                 gamma=gamma,
                                                 gae_lambda=gae_lambda,
                                                 device=device)
-            valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
+            for valid_episode in valid_episodes:         
+                valid_episode.log('_enqueueAt', datetime.now(timezone.utc))
 
-            return (train_episodes, valid_episodes)
+            return ([train_episodes], valid_episodes)
 
     def create_episodes(self,
                 tasks,
@@ -286,10 +289,10 @@ class SamplerWorker(object):
                 gamma=0.95,
                 gae_lambda=1.0,
                 device="cpu"):
-        episodes = BatchEpisodes(batch_size=self.batch_size,
-                                 gamma=gamma,
-                                 device=device)
-        episodes.log('_createdAt', datetime.now(timezone.utc))
+        # episodes = BatchEpisodes(batch_size=self.batch_size,
+        #                          gamma=gamma,
+        #                          device=device)
+        # episodes.log('_createdAt', datetime.now(timezone.utc))
         # episodes.log('process_name', self.name)
         episodes_ops = []
 
@@ -312,37 +315,43 @@ class SamplerWorker(object):
                                                 gae_lambda=gae_lambda,
                                                 device=device)
             )
-        items = ray.get(episodes_ops)
-        
-        observations_list = []
-        actions_list = []
-        rewards_list = []
-        batch_list = []
-        for item in items:
-            observations_list += item[0]
-            actions_list += item[1]
-            rewards_list += item[2]
-            batch_list += item[3]
-        
-        episodes.append(observations_list, actions_list, rewards_list, batch_list)
-        episodes.log('duration', time.time() - t0)
-        self.baseline.fit(episodes)
-        episodes.compute_advantages(self.baseline,
-                                    gae_lambda=gae_lambda,
-                                    normalize=True)
+        episodes = ray.get(episodes_ops)
+
         return episodes
+        # print('episodes', episodes)
+        # observations_list = []
+        # actions_list = []
+        # rewards_list = []
+        # batch_list = []
+        # for item in items:
+        #     observations_list += item[0]
+        #     actions_list += item[1]
+        #     rewards_list += item[2]
+        #     batch_list += item[3]
+        
+        # episodes.append(observations_list, actions_list, rewards_list, batch_list)
+        # episodes.log('duration', time.time() - t0)
+        # self.baseline.fit(episodes)
+        # episodes.compute_advantages(self.baseline,
+        #                             gae_lambda=gae_lambda,
+        #                             normalize=True)
+        # return episodes
 
 @ray.remote
 class RolloutWorker(object):
     def __init__(self,
                 index,
                 policy,
+                batch_size,
                 env_name,
                 env_kwargs,
+                baseline,
                 params=None,) -> None:
         self.index = index
         self.policy = policy
         self.params = params
+        self.baseline = baseline
+        self.batch_size = batch_size
         env_kwargs['index'] = index
         self.env = make_env(env_name, env_kwargs=env_kwargs)()
 
@@ -369,14 +378,26 @@ class RolloutWorker(object):
                 gamma=0.95,
                 gae_lambda=1.0,
                 device="cpu"):
+        episodes = BatchEpisodes(batch_size=self.batch_size,
+                    gamma=gamma,
+                    device=device)
+        episodes.log('_createdAt', datetime.now(timezone.utc))
+        # episodes.log('process_name', self.name)
+
         observations_list=[]
         actions_list=[]
         rewards_list=[]
-        batch_ids=[]
+        batch_ids_list=[]
+        t0 = time.time()
         for observations, actions, rewards, batch_ids in self.sample_trajectories(task):
             observations_list.append(observations)
             actions_list.append(actions)
             rewards_list.append(rewards)
-            batch_ids.append(batch_ids)
-        
-        return observations_list, actions_list, rewards_list, batch_ids
+            batch_ids_list.append(batch_ids)
+        episodes.append(observations_list, actions_list, rewards_list, batch_ids_list)
+        episodes.log('duration', time.time() - t0)
+        self.baseline.fit(episodes)
+        episodes.compute_advantages(self.baseline,
+                                    gae_lambda=gae_lambda,
+                                    normalize=True)
+        return episodes

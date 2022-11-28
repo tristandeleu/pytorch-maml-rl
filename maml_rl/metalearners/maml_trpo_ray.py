@@ -127,7 +127,7 @@ class MAMLTRPORAY(GradientBasedMetaLearner):
         # print(zip(*[self.surrogate_loss(train, valid, old_pi=None)
         #     for (train, valid) in zip(zip(*[train_episodes]), [valid_episodes])]))
         old_losses, old_kls, old_pis = zip(*[self.surrogate_loss(train, valid, old_pi=None)
-            for (train, valid) in zip(zip(*[train_episodes]), [valid_episodes])])
+            for (train, valid) in zip(zip(*train_episodes), valid_episodes)])
 
         logs['loss_before'] = to_numpy(old_losses)
         logs['kl_before'] = to_numpy(old_kls)
@@ -165,7 +165,7 @@ class MAMLTRPORAY(GradientBasedMetaLearner):
             losses, kls, _ = zip(*[
                 self.surrogate_loss(train, valid, old_pi=old_pi)
                 for (train, valid, old_pi)
-                in zip(zip(*[train_episodes]), [valid_episodes], old_pis)])
+                in zip(zip(*train_episodes), valid_episodes, old_pis)])
 
             improve = (sum(losses) / num_tasks) - old_loss
             kl = sum(kls) / num_tasks

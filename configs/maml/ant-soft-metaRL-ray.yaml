@@ -1,0 +1,73 @@
+# General
+# -------
+# Name of the environment.
+env-name: "Ant-SoftMetaRL-v0"
+
+# Additional parameters for the environment (eg. bound for task sampling).
+env-kwargs:
+# max_episode_steps: 100
+  name: 'Ant with random box and leg'
+  # xml_path: '/xml/ant_box_leg.xml'
+  frame_skip: 5
+  rand_mass_box: [1, 4]
+  rand_mass_leg: [1, 4]
+  rand_fric: null
+  render_mode: null #'human'
+  render_w: 1500
+  render_h: 1000
+  render_res: 200
+  task:
+    box_weight: 1 # just default value -> changed on every rollout
+
+# Discount factor gamma.
+gamma: 0.99
+
+# Discount factor lambda used in "Generalized Advantage Estimation" (GAE).
+gae-lambda: 1.0
+
+# If "true", then the first order approximation of MAML is applied.
+first-order: false
+
+# Policy network
+# --------------
+# Number of hidden units in each layer.
+hidden-sizes: [64, 64]
+
+# Non-linear activation function to apply after each hidden layer.
+nonlinearity: "tanh"
+
+# Task-specific
+# -------------
+# Number of trajectories to sample for each task.
+fast-batch-size: 20
+
+# Number of gradient steps in the inner loop / fast adaptation.
+num-steps: 1
+
+# Step size for each gradient step in the inner loop / fast adaptation.
+fast-lr: 0.1
+
+# Optimization
+# ------------
+# Number of outer-loop updates (ie. number of batches of tasks).
+num-batches: 500
+
+# Number of tasks in each batch of tasks.
+meta-batch-size: 20
+
+# TRPO-specific
+# -------------
+# Size of the trust-region.
+max-kl: 1.0e-2
+
+# Number of iterations of Conjugate Gradient.
+cg-iters: 10
+
+# Value of the damping in Conjugate Gradient.
+cg-damping: 1.0e-5
+
+# Maximum number of steps in the line search.
+ls-max-steps: 15
+
+# Ratio to use for backtracking during the line search.
+ls-backtrack-ratio: 0.8
