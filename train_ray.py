@@ -11,9 +11,12 @@ from maml_rl.baseline import LinearFeatureBaseline
 from maml_rl.samplers import MultiTaskSamplerRay
 from maml_rl.utils.helpers import get_policy_for_env, get_input_size
 from maml_rl.utils.reinforcement_learning import get_returns
-
+import wandb
+wandb.init(project="maml")
 
 def main(args):
+    wandb.config.update(args)
+
     with open(args.config, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -39,6 +42,7 @@ def main(args):
                                 hidden_sizes=config['hidden-sizes'],
                                 nonlinearity=config['nonlinearity'])
     policy.share_memory()
+    wandb.watch(policy)
 
     # Baseline
     baseline = LinearFeatureBaseline(get_input_size(env))
@@ -82,6 +86,12 @@ def main(args):
                     num_iterations=num_iterations,
                     train_returns=get_returns(train_episodes[0]),
                     valid_returns=get_returns(valid_episodes))
+        wandb.log({
+            'train_returns': logs['train_returns'],
+            'valid_returns': logs['valid_returns'],
+            'loss': logs['loss_after'],
+            'kl_after': logs['kl_after'],
+        })
 
         # Save policy
         if args.output_folder is not None:
