@@ -1,0 +1,6 @@
+<mujoco>
+    <asset>
+        <mesh name="Mario_case" file="Mario_case.STL"/>
+        <mesh name="Ship" file="ship.stl"/>
+    </asset>
+</mujoco>

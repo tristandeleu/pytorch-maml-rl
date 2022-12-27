@@ -61,3 +61,12 @@ register(
     entry_point='maml_rl.envs.navigation:Navigation2DEnv',
     max_episode_steps=100
 )
+
+# 2D Navigation
+# ----------------------------------------
+
+register(
+    'Ant-SoftMetaRL-v0',
+    entry_point='maml_rl.envs.utils.wrappers:mujoco_wrapper',
+    kwargs={'entry_point': 'maml_rl.envs.mujoco.ant_soft_metaRL:AntSoftMetaRL'}
+)

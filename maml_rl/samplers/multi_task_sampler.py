@@ -182,7 +182,7 @@ class MultiTaskSampler(Sampler):
             name='valid-consumer')
         self._valid_consumer_thread.daemon = True
         self._valid_consumer_thread.start()
-
+        # print(train_episodes_futures, valid_episodes_futures)
         return (train_episodes_futures, valid_episodes_futures)
 
     def _join_consumer_threads(self):
@@ -225,7 +225,7 @@ class SamplerWorker(mp.Process):
                  valid_queue,
                  policy_lock):
         super(SamplerWorker, self).__init__()
-
+        env_kwargs['index'] = index
         env_fns = [make_env(env_name, env_kwargs=env_kwargs)
                    for _ in range(batch_size)]
         self.envs = SyncVectorEnv(env_fns,
@@ -308,13 +308,14 @@ class SamplerWorker(mp.Process):
         observations = self.envs.reset()
         with torch.no_grad():
             while not self.envs.dones.all():
-                observations_tensor = torch.from_numpy(observations)
+                observations_tensor = torch.from_numpy(observations).type(torch.float32)
                 pi = self.policy(observations_tensor, params=params)
                 actions_tensor = pi.sample()
                 actions = actions_tensor.cpu().numpy()
 
                 new_observations, rewards, _, infos = self.envs.step(actions)
                 batch_ids = infos['batch_ids']
+                # print((observations.shape))
                 yield (observations, actions, rewards, batch_ids)
                 observations = new_observations
 
