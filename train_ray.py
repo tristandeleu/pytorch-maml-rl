@@ -4,7 +4,7 @@ import json
 import os
 import yaml
 from tqdm import trange
-
+import numpy as np
 import maml_rl.envs
 from maml_rl.metalearners import MAMLTRPORAY
 from maml_rl.baseline import LinearFeatureBaseline
@@ -86,11 +86,12 @@ def main(args):
                     num_iterations=num_iterations,
                     train_returns=get_returns(train_episodes[0]),
                     valid_returns=get_returns(valid_episodes))
+
         wandb.log({
-            'train_returns': logs['train_returns'],
-            'valid_returns': logs['valid_returns'],
-            'loss': logs['loss_after'],
-            'kl_after': logs['kl_after'],
+            'train_returns': np.mean(logs['train_returns']),
+            'valid_returns': np.mean(logs['valid_returns']),
+            'loss': np.mean(logs['loss_after']),
+            'kl_after': np.mean(logs['kl_after']),
         })
 
         # Save policy

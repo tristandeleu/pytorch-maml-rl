@@ -112,7 +112,12 @@ class MultiTaskSamplerRay(Sampler):
         gae_lambda=1.0,
         device='cpu'):
       
-        episodes = self.sampler.sample(tasks)
+        episodes = self.sampler.sample(tasks,
+            num_steps,
+            fast_lr,
+            gamma,
+            gae_lambda,
+            device)
 
         return episodes
 
@@ -199,54 +204,13 @@ class SamplerWorker(object):
         self.baseline = baseline
         self.workers = [RolloutWorker.remote(
             index=index,
-            policy=self.policy,
             batch_size=batch_size,
             env_name=env_name,
             env_kwargs=env_kwargs,
-            baseline=baseline
+            baseline=deepcopy(baseline)
         )
         for index in range(num_workers)]
 
-    # def sample(self,
-    #            index,
-    #            num_steps=1,
-    #            fast_lr=0.5,
-    #            gamma=0.95,
-    #            gae_lambda=1.0,
-    #            device='cpu'):
-    #     # Sample the training trajectories with the initial policy and adapt the
-    #     # policy to the task, based on the REINFORCE loss computed on the
-    #     # training trajectories. The gradient update in the fast adaptation uses
-    #     # `first_order=True` no matter if the second order version of MAML is
-    #     # applied since this is only used for sampling trajectories, and not
-    #     # for optimization.
-    #     params = None
-    #     for step in range(num_steps):
-    #         train_episodes = self.create_episodes(params=params,
-    #                                               gamma=gamma,
-    #                                               gae_lambda=gae_lambda,
-    #                                               device=device)
-    #         train_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-    #         # QKFIX: Deep copy the episodes before sending them to their
-    #         # respective queues, to avoid a race condition. This issue would 
-    #         # cause the policy pi = policy(observations) to be miscomputed for
-    #         # some timesteps, which in turns makes the loss explode.
-    #         self.train_queue.put((index, step, deepcopy(train_episodes)))
-
-    #         with self.policy_lock:
-    #             loss = reinforce_loss(self.policy, train_episodes, params=params)
-    #             params = self.policy.update_params(loss,
-    #                                                params=params,
-    #                                                step_size=fast_lr,
-    #                                                first_order=True)
-
-    #     # Sample the validation trajectories with the adapted policy
-    #     valid_episodes = self.create_episodes(params=params,
-    #                                           gamma=gamma,
-    #                                           gae_lambda=gae_lambda,
-    #                                           device=device)
-    #     valid_episodes.log('_enqueueAt', datetime.now(timezone.utc))
-    #     self.valid_queue.put((index, None, deepcopy(valid_episodes)))
     def sample(self,
             tasks,
             num_steps=1,
@@ -256,36 +220,38 @@ class SamplerWorker(object):
             device='cpu'):
 
 
+            # TODO: num_step=2 이상에서 되게 하기
             params=None
+            params_list=[None]*len(tasks)
             # train_episodes = []
             for step in range(num_steps):
                 train_episodes = self.create_episodes(tasks,
-                                                    params=params,
+                                                    params=params_list,
                                                     gamma=gamma,
                                                     gae_lambda=gae_lambda,
                                                     device=device)
-                for train_episode in train_episodes:
+                for i, train_episode in enumerate(train_episodes):
                     train_episode.log('_enqueueAt', datetime.now(timezone.utc))
 
-                    loss = reinforce_loss(self.policy, train_episode, params=params)
-
-                    params = self.policy.update_params(loss,
-                                                    params=params,
+                    loss = reinforce_loss(self.policy, train_episode, params=params_list[i])
+    
+                    params_list[i] = self.policy.update_params(loss,
+                                                    params=params_list[i],
                                                     step_size=fast_lr,
                                                     first_order=True)
             valid_episodes = self.create_episodes(tasks,
-                                                params=params,
+                                                params=params_list,
                                                 gamma=gamma,
                                                 gae_lambda=gae_lambda,
                                                 device=device)
-            for valid_episode in valid_episodes:         
-                valid_episode.log('_enqueueAt', datetime.now(timezone.utc))
-
-            return ([train_episodes], valid_episodes)
+            # for valid_episode in valid_episodes:         
+            #     valid_episode.log('_enqueueAt', datetime.now(timezone.utc))
+            # TODO: num_step=2 이상에서 되게 하기
+            return ([deepcopy(train_episodes)], deepcopy(valid_episodes))
 
     def create_episodes(self,
                 tasks,
-                params=None,
+                params,
                 gamma=0.95,
                 gae_lambda=1.0,
                 device="cpu"):
@@ -305,12 +271,13 @@ class SamplerWorker(object):
         for index, task in enumerate(tasks):
             episodes_ops.append(
                 self.workers[index].create.remote(task=task,
+                                                policy=self.policy,
                                                 # observations_list=observations_list,
                                                 # actions_list=actions_list,
                                                 # rewards_list=rewards_list,
                                                 # batch_list=batch_list,
                                                 # episodes=episodes,
-                                                params=params,
+                                                params=params[index],
                                                 gamma=gamma,
                                                 gae_lambda=gae_lambda,
                                                 device=device)
@@ -341,39 +308,41 @@ class SamplerWorker(object):
 class RolloutWorker(object):
     def __init__(self,
                 index,
-                policy,
+                # policy,
                 batch_size,
                 env_name,
                 env_kwargs,
                 baseline,
-                params=None,) -> None:
+                ) -> None:
         self.index = index
-        self.policy = policy
-        self.params = params
+        # self.policy = policy
         self.baseline = baseline
         self.batch_size = batch_size
         env_kwargs['index'] = index
         self.env = make_env(env_name, env_kwargs=env_kwargs)()
 
-    def sample_trajectories(self, task):
+    def sample_trajectories(self, task, policy, params):
         self.env.reset_task(task)
         for i in range(self.batch_size):
             done = False
             observations = self.env.reset()
-            while not done:
-                observations_tensor = torch.from_numpy(observations).type(torch.float32)
-                pi = self.policy(observations_tensor, params=self.params)
-                actions_tensor = pi.sample()
-                actions = actions_tensor.cpu().numpy()
+            with torch.no_grad():
+                while not done:
+                    # self.env.render()
+                    observations_tensor = torch.from_numpy(observations).type(torch.float32)
+                    pi = policy(observations_tensor, params)
+                    actions_tensor = pi.sample()
+                    actions = actions_tensor.cpu().numpy()
 
-                new_observations, rewards, done, _ = self.env.step(actions)
-                
-                yield (observations, actions, rewards, i)
-                observations = new_observations
+                    new_observations, rewards, done, _ = self.env.step(actions)
+
+                    yield (observations, actions, rewards, i)
+                    observations = new_observations
 
     def create(self,
                 task,
                   # episodes,
+                policy,
                 params=None,
                 gamma=0.95,
                 gae_lambda=1.0,
@@ -389,7 +358,7 @@ class RolloutWorker(object):
         rewards_list=[]
         batch_ids_list=[]
         t0 = time.time()
-        for observations, actions, rewards, batch_ids in self.sample_trajectories(task):
+        for observations, actions, rewards, batch_ids in self.sample_trajectories(task, policy, params):
             observations_list.append(observations)
             actions_list.append(actions)
             rewards_list.append(rewards)

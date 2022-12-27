@@ -91,7 +91,6 @@ class MAMLTRPORAY(GradientBasedMetaLearner):
         first_order = (old_pi is not None) or self.first_order
         params = self.adapt(train_episodes,
                                   first_order=first_order)
-
         with torch.set_grad_enabled(old_pi is None):
             pi = self.policy(valid_episodes.observations, params=params)
 
@@ -101,7 +100,6 @@ class MAMLTRPORAY(GradientBasedMetaLearner):
             log_ratio = (pi.log_prob(valid_episodes.actions)
                          - old_pi.log_prob(valid_episodes.actions))
             ratio = torch.exp(log_ratio)
-
             losses = -weighted_mean(ratio * valid_episodes.advantages,
                                     lengths=valid_episodes.lengths)
             kls = weighted_mean(kl_divergence(pi, old_pi),
@@ -117,15 +115,10 @@ class MAMLTRPORAY(GradientBasedMetaLearner):
              cg_damping=1e-2,
              ls_max_steps=10,
              ls_backtrack_ratio=0.5):
-        # print(type(train_episodes))
-        num_tasks = len(train_episodes)
-        # for (a,b) in zip(zip(*[train_episodes]),[valid_episodes]):
-        #     print(a,b)
+        num_tasks = len(train_episodes[0])
         logs = {}
 
         # Compute the surrogate loss
-        # print(zip(*[self.surrogate_loss(train, valid, old_pi=None)
-        #     for (train, valid) in zip(zip(*[train_episodes]), [valid_episodes])]))
         old_losses, old_kls, old_pis = zip(*[self.surrogate_loss(train, valid, old_pi=None)
             for (train, valid) in zip(zip(*train_episodes), valid_episodes)])
 

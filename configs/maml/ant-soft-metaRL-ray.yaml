@@ -9,7 +9,7 @@ env-kwargs:
   name: 'Ant with random box and leg'
   # xml_path: '/xml/ant_box_leg.xml'
   frame_skip: 5
-  rand_mass_box: [1, 4]
+  rand_mass_box: [1, 2]
   rand_mass_leg: [1, 4]
   rand_fric: null
   render_mode: null #'human'
@@ -39,7 +39,7 @@ nonlinearity: "tanh"
 # Task-specific
 # -------------
 # Number of trajectories to sample for each task.
-fast-batch-size: 20
+fast-batch-size: 40
 
 # Number of gradient steps in the inner loop / fast adaptation.
 num-steps: 1
