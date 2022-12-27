@@ -14,19 +14,6 @@ from maml_rl.utils.reinforcement_learning import reinforce_loss
 
 import ray
 
-def _create_consumer(queue, futures, loop=None):
-    if loop is None:
-        loop = asyncio.get_event_loop()
-    while True:
-        data = queue.get()
-        if data is None:
-            break
-        index, step, episodes = data
-        future = futures if (step is None) else futures[step]
-        if not future[index].cancelled():
-            loop.call_soon_threadsafe(future[index].set_result, episodes)
-
-
 class MultiTaskSamplerRay(Sampler):
     """Vectorized sampler to sample trajectories from multiple environements.
 
@@ -121,63 +108,6 @@ class MultiTaskSamplerRay(Sampler):
 
         return episodes
 
-    @property
-    def train_consumer_thread(self):
-        if self._train_consumer_thread is None:
-            raise ValueError()
-        return self._train_consumer_thread
-
-    @property
-    def valid_consumer_thread(self):
-        if self._valid_consumer_thread is None:
-            raise ValueError()
-        return self._valid_consumer_thread
-
-    def _start_consumer_threads(self, tasks, num_steps=1):
-        # Start train episodes consumer thread
-        train_episodes_futures = [[self._event_loop.create_future() for _ in tasks]
-                                  for _ in range(num_steps)]
-        self._train_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.train_episodes_queue, train_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='train-consumer')
-        self._train_consumer_thread.daemon = True
-        self._train_consumer_thread.start()
-
-        # Start valid episodes consumer thread
-        valid_episodes_futures = [self._event_loop.create_future() for _ in tasks]
-        self._valid_consumer_thread = threading.Thread(target=_create_consumer,
-            args=(self.valid_episodes_queue, valid_episodes_futures),
-            kwargs={'loop': self._event_loop},
-            name='valid-consumer')
-        self._valid_consumer_thread.daemon = True
-        self._valid_consumer_thread.start()
-
-        return (train_episodes_futures, valid_episodes_futures)
-
-    def _join_consumer_threads(self):
-        if self._train_consumer_thread is not None:
-            self.train_episodes_queue.put(None)
-            self.train_consumer_thread.join()
-
-        if self._valid_consumer_thread is not None:
-            self.valid_episodes_queue.put(None)
-            self.valid_consumer_thread.join()
-
-        self._train_consumer_thread = None
-        self._valid_consumer_thread = None
-
-    def close(self):
-        if self.closed:
-            return
-
-        for _ in range(self.num_workers):
-            self.task_queue.put(None)
-        self.task_queue.join()
-        self._join_consumer_threads()
-
-        self.closed = True
-
 class SamplerWorker(object):
     def __init__(self,
                  index,
@@ -190,14 +120,7 @@ class SamplerWorker(object):
                  baseline,
                  num_workers,
                  seed):
-        # super(SamplerWorker, self).__init__()
 
-        # env_fns = [make_env(env_name, env_kwargs=env_kwargs)
-        #            for _ in range(batch_size)]
-        # self.envs = SyncVectorEnv(env_fns,
-        #                           observation_space=observation_space,
-        #                           action_space=action_space)
-        # self.envs.seed(None if (seed is None) else seed + index * batch_size)
         self.index = index
         self.batch_size = batch_size
         self.policy = policy
@@ -223,7 +146,6 @@ class SamplerWorker(object):
             # TODO: num_step=2 이상에서 되게 하기
             params=None
             params_list=[None]*len(tasks)
-            # train_episodes = []
             for step in range(num_steps):
                 train_episodes = self.create_episodes(tasks,
                                                     params=params_list,
@@ -244,8 +166,6 @@ class SamplerWorker(object):
                                                 gamma=gamma,
                                                 gae_lambda=gae_lambda,
                                                 device=device)
-            # for valid_episode in valid_episodes:         
-            #     valid_episode.log('_enqueueAt', datetime.now(timezone.utc))
             # TODO: num_step=2 이상에서 되게 하기
             return ([deepcopy(train_episodes)], deepcopy(valid_episodes))
 
@@ -255,28 +175,13 @@ class SamplerWorker(object):
                 gamma=0.95,
                 gae_lambda=1.0,
                 device="cpu"):
-        # episodes = BatchEpisodes(batch_size=self.batch_size,
-        #                          gamma=gamma,
-        #                          device=device)
-        # episodes.log('_createdAt', datetime.now(timezone.utc))
-        # episodes.log('process_name', self.name)
         episodes_ops = []
-
-        # observations_list = []#[[] for _ in range(self.batch_size)]
-        # actions_list = []#[[] for _ in range(self.batch_size)]
-        # rewards_list = []#[[] for _ in range(self.batch_size)]
-        # batch_list = []#[[] for _ in range(self.batch_size)]
 
         t0 = time.time()
         for index, task in enumerate(tasks):
             episodes_ops.append(
                 self.workers[index].create.remote(task=task,
                                                 policy=self.policy,
-                                                # observations_list=observations_list,
-                                                # actions_list=actions_list,
-                                                # rewards_list=rewards_list,
-                                                # batch_list=batch_list,
-                                                # episodes=episodes,
                                                 params=params[index],
                                                 gamma=gamma,
                                                 gae_lambda=gae_lambda,
@@ -285,37 +190,17 @@ class SamplerWorker(object):
         episodes = ray.get(episodes_ops)
 
         return episodes
-        # print('episodes', episodes)
-        # observations_list = []
-        # actions_list = []
-        # rewards_list = []
-        # batch_list = []
-        # for item in items:
-        #     observations_list += item[0]
-        #     actions_list += item[1]
-        #     rewards_list += item[2]
-        #     batch_list += item[3]
-        
-        # episodes.append(observations_list, actions_list, rewards_list, batch_list)
-        # episodes.log('duration', time.time() - t0)
-        # self.baseline.fit(episodes)
-        # episodes.compute_advantages(self.baseline,
-        #                             gae_lambda=gae_lambda,
-        #                             normalize=True)
-        # return episodes
 
 @ray.remote
 class RolloutWorker(object):
     def __init__(self,
                 index,
-                # policy,
                 batch_size,
                 env_name,
                 env_kwargs,
                 baseline,
                 ) -> None:
         self.index = index
-        # self.policy = policy
         self.baseline = baseline
         self.batch_size = batch_size
         env_kwargs['index'] = index
@@ -341,7 +226,6 @@ class RolloutWorker(object):
 
     def create(self,
                 task,
-                  # episodes,
                 policy,
                 params=None,
                 gamma=0.95,
@@ -351,7 +235,6 @@ class RolloutWorker(object):
                     gamma=gamma,
                     device=device)
         episodes.log('_createdAt', datetime.now(timezone.utc))
-        # episodes.log('process_name', self.name)
 
         observations_list=[]
         actions_list=[]
